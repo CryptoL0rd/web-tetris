@@ -1,0 +1,39 @@
+{
+  "name": "web-tetris",
+  "version": "2.0.0",
+  "description": "Academic Tetris implementation with enhanced features and responsive design",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "dev": "python3 -m http.server 8080",
+    "build": "echo 'No build process needed for static HTML/CSS/JS'",
+    "test": "echo 'Tests will be added in future versions'",
+    "lint": "echo 'Linting will be added in future versions'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/username/web-tetris.git"
+  },
+  "keywords": [
+    "tetris",
+    "game",
+    "html5",
+    "javascript",
+    "canvas",
+    "academic",
+    "responsive",
+    "educational"
+  ],
+  "author": "Web Tetris Developer",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/username/web-tetris/issues"
+  },
+  "homepage": "https://github.com/username/web-tetris#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
