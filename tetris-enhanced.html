@@ -2401,29 +2401,6 @@
                 }
                 return color;
             }
-
-            drawPiece(piece) {
-                const shape = piece.shape;
-                for (let row = 0; row < shape.length; row++) {
-                    for (let col = 0; col < shape[row].length; col++) {
-                        if (shape[row][col]) {
-                            this.drawCell(piece.row + row, piece.col + col, '#00ff88');
-                        }
-                    }
-                }
-            }
-
-            drawCell(row, col, color) {
-                const x = col * this.CELL_SIZE;
-                const y = row * this.CELL_SIZE;
-
-                this.ctx.fillStyle = color;
-                this.ctx.fillRect(x + 1, y + 1, this.CELL_SIZE - 2, this.CELL_SIZE - 2);
-
-                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-                this.ctx.lineWidth = 1;
-                this.ctx.strokeRect(x + 1, y + 1, this.CELL_SIZE - 2, this.CELL_SIZE - 2);
-            }
         }
 
         // =========================================================================
