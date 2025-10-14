@@ -1,0 +1,2331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TETRIS - Working Version with Fixed Controls</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary-color: #00ff88;
+            --secondary-color: #ffaa00;
+            --danger-color: #ff4444;
+            --background-dark: linear-gradient(135deg, #0f0f23, #1a1a40);
+            --background-light: linear-gradient(135deg, #f0f8ff, #e6f3ff);
+            --text-dark: #ffffff;
+            --text-light: #333333;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        [data-theme="light"] {
+            --primary-color: #2e7d32;
+            --secondary-color: #f57c00;
+            --danger-color: #d32f2f;
+            --background: var(--background-light);
+            --text: var(--text-light);
+            --glass-bg: rgba(0, 0, 0, 0.05);
+            --glass-border: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --primary-color: #00ff88;
+            --secondary-color: #ffaa00;
+            --danger-color: #ff4444;
+            --background: var(--background-dark);
+            --text: var(--text-dark);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        /* System theme detection */
+        @media (prefers-color-scheme: dark) {
+            body:not([data-theme]) {
+                --primary-color: #00ff88;
+                --secondary-color: #ffaa00;
+                --danger-color: #ff4444;
+                --background: var(--background-dark);
+                --text: var(--text-dark);
+                --glass-bg: rgba(255, 255, 255, 0.05);
+                --glass-border: rgba(255, 255, 255, 0.1);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            body:not([data-theme]) {
+                --primary-color: #2e7d32;
+                --secondary-color: #f57c00;
+                --danger-color: #d32f2f;
+                --background: var(--background-light);
+                --text: var(--text-light);
+                --glass-bg: rgba(0, 0, 0, 0.05);
+                --glass-border: rgba(0, 0, 0, 0.1);
+            }
+        }
+        .tetris-container {
+            display: grid;
+            grid-template-columns: 1fr 200px;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            background: var(--glass-bg);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 2px solid var(--glass-border);
+            transition: all 0.3s ease;
+        }
+
+        /* Mobile First - Vertical Layout (320px - 768px) */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                background: var(--background);
+            }
+
+            .tetris-container {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                padding: 15px;
+                border-radius: 10px;
+                max-width: 100%;
+                margin: 0 auto;
+            }
+
+            /* Mobile game field optimization */
+            .game-canvas {
+                max-width: 100%;
+                height: auto;
+                aspect-ratio: 0.6;
+                border-radius: 8px;
+                margin: 0 auto;
+                display: block;
+            }
+
+            /* Mobile controls improvements */
+            .mobile-controls {
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 1000;
+                background: var(--glass-bg);
+                border: 2px solid var(--glass-border);
+                border-radius: 25px;
+                padding: 20px;
+                backdrop-filter: blur(15px);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                max-width: calc(100vw - 40px);
+                overflow-x: auto;
+            }
+
+            .mobile-controls .control-group {
+                flex-direction: row;
+                gap: 15px;
+                margin: 0 5px;
+                min-width: max-content;
+            }
+
+            .mobile-controls .control-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 20px;
+                border-width: 3px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            }
+
+            .mobile-controls .control-btn.large {
+                width: 80px;
+                height: 80px;
+                font-size: 24px;
+            }
+
+            /* Mobile header optimization */
+            header h1 {
+                font-size: 2rem !important;
+                margin-bottom: 5px !important;
+            }
+
+            header p {
+                font-size: 0.9rem !important;
+            }
+
+            /* Mobile panel optimization */
+            .game-panel {
+                order: -1;
+                background: var(--glass-bg);
+                border: 2px solid var(--glass-border);
+                border-radius: 10px;
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+
+            /* Hide desktop-only elements on mobile */
+            .desktop-only {
+                display: none !important;
+            }
+
+            /* Mobile-specific UI improvements */
+            .mobile-optimized {
+                display: block !important;
+            }
+
+            /* Touch-friendly button sizes */
+            .mobile-controls button,
+            .game-panel button {
+                min-height: 48px;
+                min-width: 48px;
+                padding: 12px 20px;
+                font-size: 1rem;
+                border-radius: 8px;
+            }
+        }
+
+        /* Tablet Layout (769px - 1024px) */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            body {
+                padding: 15px;
+            }
+
+            .tetris-container {
+                grid-template-columns: 1fr 250px;
+                gap: 25px;
+                padding: 20px;
+                max-width: 900px;
+            }
+
+            /* Larger game field for tablets */
+            .game-canvas {
+                max-width: 100%;
+                height: auto;
+                aspect-ratio: 0.6;
+            }
+
+            /* Enhanced mobile controls for tablets */
+            .mobile-controls {
+                position: relative;
+                bottom: auto;
+                left: auto;
+                transform: none;
+                margin: 20px 0;
+                padding: 25px;
+                max-width: none;
+                overflow-x: visible;
+            }
+
+            .mobile-controls .control-btn {
+                width: 70px;
+                height: 70px;
+                font-size: 22px;
+            }
+
+            .mobile-controls .control-btn.large {
+                width: 90px;
+                height: 90px;
+                font-size: 26px;
+            }
+
+            /* Tablet-optimized panel */
+            .game-panel {
+                background: var(--glass-bg);
+                border: 2px solid var(--glass-border);
+                border-radius: 12px;
+                padding: 20px;
+            }
+
+            /* Show tablet-specific features */
+            .tablet-optimized {
+                display: block !important;
+            }
+        }
+
+        /* Desktop Layout (1025px+) */
+        @media (min-width: 1025px) {
+            .tetris-container {
+                grid-template-columns: 1fr 300px;
+                gap: 30px;
+                padding: 30px;
+                max-width: 1200px;
+            }
+
+            /* Full-size game field for desktop */
+            .game-canvas {
+                max-width: 100%;
+                height: auto;
+                aspect-ratio: 0.6;
+            }
+
+            /* Desktop-optimized panel with detailed stats */
+            .game-panel {
+                background: var(--glass-bg);
+                border: 2px solid var(--glass-border);
+                border-radius: 15px;
+                padding: 25px;
+            }
+
+            /* Hide mobile controls on desktop */
+            .mobile-controls {
+                display: none !important;
+            }
+
+            /* Show desktop-specific features */
+            .desktop-only {
+                display: block !important;
+            }
+
+            /* Enhanced hover effects for desktop */
+            .control-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+            }
+
+            .game-panel button:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            }
+        }
+
+        /* Ultra-wide screens (1400px+) */
+        @media (min-width: 1400px) {
+            .tetris-container {
+                max-width: 1400px;
+                grid-template-columns: 1fr 350px;
+                gap: 40px;
+            }
+        }
+
+        /* Мобильные элементы управления */
+        .mobile-controls {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 20px;
+            padding: 15px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .mobile-controls.show {
+            display: flex;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 0 10px;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+            color: #00ff88;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .control-btn:active {
+            background: rgba(0, 255, 136, 0.3);
+            transform: scale(0.95);
+        }
+
+        .control-btn.large {
+            width: 70px;
+            height: 70px;
+            font-size: 20px;
+        }
+
+        .control-btn.secondary {
+            border-color: #ffaa00;
+            color: #ffaa00;
+        }
+
+        .control-btn.danger {
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+
+        /* Адаптивность для мобильных устройств */
+        @media (max-width: 768px) {
+            .tetris-container {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                padding: 15px;
+            }
+
+            .game-panel {
+                order: -1;
+            }
+
+            .mobile-controls.show {
+                display: flex;
+            }
+
+            .game-canvas {
+                max-width: 100%;
+                height: auto;
+            }
+        }
+
+        /* Анимации для тактильной обратной связи */
+        .control-btn.tactile {
+            animation: tactileFeedback 0.2s ease-out;
+        }
+
+        /* Enhanced Animation System */
+        @keyframes tactileFeedback {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes pieceDrop {
+            0% { transform: translateY(-10px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes lineClear {
+            0% { transform: scaleX(1); opacity: 1; }
+            50% { transform: scaleX(1.1); opacity: 0.8; }
+            100% { transform: scaleX(0); opacity: 0; }
+        }
+
+        @keyframes gameOverPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideInRight {
+            0% { opacity: 0; transform: translateX(30px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes breathe {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Animation Classes */
+        .animate-piece-drop {
+            animation: pieceDrop 0.3s ease-out;
+        }
+
+        .animate-line-clear {
+            animation: lineClear 0.5s ease-in;
+        }
+
+        .animate-game-over {
+            animation: gameOverPulse 2s ease-in-out infinite;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .animate-slide-in-right {
+            animation: slideInRight 0.4s ease-out;
+        }
+
+        .animate-breathe {
+            animation: breathe 3s ease-in-out infinite;
+        }
+
+        /* Smooth transitions for all interactive elements */
+        * {
+            transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+        }
+
+        /* Performance optimizations */
+        .game-canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        /* High DPI support */
+        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+            .game-canvas {
+                image-rendering: -webkit-optimize-contrast;
+                image-rendering: crisp-edges;
+            }
+        }
+
+        /* Reduced motion for users who prefer it */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+
+            .animate-piece-drop,
+            .animate-line-clear,
+            .animate-game-over,
+            .animate-fade-in,
+            .animate-slide-in-right,
+            .animate-breathe {
+                animation: none !important;
+            }
+        }
+
+        /* Battery saving mode for mobile */
+        @media (max-width: 768px) {
+            /* Reduce animations on mobile for better performance */
+            .mobile-optimized .animate-fade-in {
+                animation-duration: 0.2s;
+            }
+
+            /* Disable heavy animations on slower devices */
+            .mobile-optimized .animate-breathe {
+                animation-duration: 6s;
+            }
+        }
+
+        /* Скрываем мобильные кнопки на десктопе */
+        @media (min-width: 769px) {
+            .mobile-controls {
+                display: none !important;
+            }
+        }
+        .game-canvas {
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid #00ff88;
+            border-radius: 10px;
+        }
+        .game-panel {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .status-dot {
+            width: 12px; height: 12px; border-radius: 50%; margin-right: 10px;
+        }
+        .status-dot.playing { background: #00ff88; }
+        .status-dot.paused { background: #ffaa00; }
+        .status-dot.game-over { background: #ff4444; }
+    </style>
+</head>
+<body>
+    <div class="tetris-container">
+        <header style="grid-column: 1 / -1; text-align: center; position: relative;">
+            <h1 style="font-size: 2.5rem; color: var(--primary-color); margin-bottom: 10px;">TETRIS</h1>
+            <p style="color: var(--text); opacity: 0.8;">Working Version with Fixed Controls</p>
+
+            <!-- Theme toggle button -->
+            <button onclick="toggleTheme()" id="themeToggle" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: var(--glass-bg);
+                border: 2px solid var(--glass-border);
+                color: var(--primary-color);
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                cursor: pointer;
+                font-size: 18px;
+                transition: all 0.3s ease;
+            " title="Toggle theme">🌙</button>
+        </header>
+
+        <section>
+            <canvas id="gameCanvas" class="game-canvas" width="300" height="600">
+                Your browser does not support HTML5 Canvas.
+            </canvas>
+        </section>
+
+        <aside class="game-panel">
+            <!-- Game Status Section -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: var(--primary-color); margin-bottom: 10px;">Game Status</h3>
+                <div style="display: flex; align-items: center;">
+                    <div id="statusDot" class="status-dot paused"></div>
+                    <span id="statusText">Paused</span>
+                </div>
+            </div>
+
+            <!-- Score Section -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: var(--primary-color); margin-bottom: 10px;">Score</h3>
+                <div id="scoreDisplay" style="font-size: 1.2rem; color: var(--text); font-weight: bold;">0</div>
+                <div class="desktop-only" style="margin-top: 10px;">
+                    <div style="font-size: 0.8rem; color: var(--text); opacity: 0.7;">
+                        <div>Lines: <span id="linesCleared">0</span></div>
+                        <div>Level: <span id="currentLevel">1</span></div>
+                        <div>Pieces: <span id="piecesPlaced">0</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Next Piece Preview (Desktop/Tablet only) -->
+            <div class="tablet-optimized desktop-only" style="margin-bottom: 20px;">
+                <h3 style="color: var(--primary-color); margin-bottom: 10px;">Next</h3>
+                <canvas id="nextPieceCanvas" width="120" height="80" style="
+                    background: var(--glass-bg);
+                    border: 2px solid var(--glass-border);
+                    border-radius: 8px;
+                    display: block;
+                    margin: 0 auto;
+                "></canvas>
+            </div>
+
+            <!-- Detailed Statistics (Desktop only) -->
+            <div class="desktop-only" style="margin-bottom: 20px;">
+                <h3 style="color: var(--primary-color); margin-bottom: 10px;">📊 Statistics</h3>
+                <div style="font-size: 0.8rem; color: var(--text); opacity: 0.8; line-height: 1.4;">
+                    <div>Session Time: <span id="sessionTime">00:00</span></div>
+                    <div>Best Score: <span id="bestScore">0</span></div>
+                    <div>Games Played: <span id="gamesPlayed">0</span></div>
+                    <div>Avg Score: <span id="avgScore">0</span></div>
+                </div>
+            </div>
+
+            <!-- Controls Section -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: var(--primary-color); margin-bottom: 10px;">Controls</h3>
+                <div style="font-size: 0.9rem; line-height: 1.5; color: var(--text);">
+                    <div id="keyboardControls">
+                        <div>←→ Move | ↓ Soft Drop | SPACE Hard Drop</div>
+                        <div>↑/Z Rotate | P Pause | R Restart</div>
+                    </div>
+                    <button onclick="if(window.tetrisGame) window.tetrisGame.showKeySettings()" style="
+                        margin-top: 10px;
+                        background: var(--glass-bg);
+                        border: 2px solid var(--primary-color);
+                        color: var(--primary-color);
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 0.8rem;
+                        transition: all 0.3s ease;
+                    ">Настроить клавиши</button>
+                </div>
+            </div>
+
+            <!-- Модальное окно настроек клавиш -->
+            <div id="keySettingsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; justify-content: center; align-items: center;">
+                <div style="background: rgba(0,0,0,0.9); border: 2px solid #00ff88; border-radius: 10px; padding: 20px; max-width: 400px; width: 90%;">
+                    <h3 style="color: #00ff88; margin-bottom: 20px;">Настройки клавиш</h3>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #fff; display: block; margin-bottom: 5px;">Движение влево:</label>
+                        <input type="text" id="keyLeft" readonly style="background: rgba(255,255,255,0.1); border: 1px solid #00ff88; color: #00ff88; padding: 5px; border-radius: 3px; width: 100%;" placeholder="Нажмите клавишу...">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #fff; display: block; margin-bottom: 5px;">Движение вправо:</label>
+                        <input type="text" id="keyRight" readonly style="background: rgba(255,255,255,0.1); border: 1px solid #00ff88; color: #00ff88; padding: 5px; border-radius: 3px; width: 100%;" placeholder="Нажмите клавишу...">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #fff; display: block; margin-bottom: 5px;">Мягкое падение:</label>
+                        <input type="text" id="keyDown" readonly style="background: rgba(255,255,255,0.1); border: 1px solid #00ff88; color: #00ff88; padding: 5px; border-radius: 3px; width: 100%;" placeholder="Нажмите клавишу...">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #fff; display: block; margin-bottom: 5px;">Поворот:</label>
+                        <input type="text" id="keyRotate" readonly style="background: rgba(255,255,255,0.1); border: 1px solid #00ff88; color: #00ff88; padding: 5px; border-radius: 3px; width: 100%;" placeholder="Нажмите клавишу...">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #fff; display: block; margin-bottom: 5px;">Быстрое падение:</label>
+                        <input type="text" id="keyDrop" readonly style="background: rgba(255,255,255,0.1); border: 1px solid #00ff88; color: #00ff88; padding: 5px; border-radius: 3px; width: 100%;" placeholder="Нажмите клавишу...">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #fff; display: block; margin-bottom: 5px;">Пауза:</label>
+                        <input type="text" id="keyPause" readonly style="background: rgba(255,255,255,0.1); border: 1px solid #00ff88; color: #00ff88; padding: 5px; border-radius: 3px; width: 100%;" placeholder="Нажмите клавишу...">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #fff; display: block; margin-bottom: 5px;">Рестарт:</label>
+                        <input type="text" id="keyRestart" readonly style="background: rgba(255,255,255,0.1); border: 1px solid #00ff88; color: #00ff88; padding: 5px; border-radius: 3px; width: 100%;" placeholder="Нажмите клавишу...">
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label style="color: #fff; display: block; margin-bottom: 5px;">Звук:</label>
+                        <input type="text" id="keySound" readonly style="background: rgba(255,255,255,0.1); border: 1px solid #00ff88; color: #00ff88; padding: 5px; border-radius: 3px; width: 100%;" placeholder="Нажмите клавишу...">
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="if(window.tetrisGame) window.tetrisGame.saveKeySettings()" style="background: #00ff88; border: none; padding: 10px 15px; border-radius: 5px; color: #000; cursor: pointer;">Сохранить</button>
+                        <button onclick="if(window.tetrisGame) window.tetrisGame.cancelKeySettings()" style="background: #666; border: none; padding: 10px 15px; border-radius: 5px; color: #fff; cursor: pointer;">Отмена</button>
+                        <button onclick="if(window.tetrisGame) window.tetrisGame.resetKeySettings()" style="background: #ffaa00; border: none; padding: 10px 15px; border-radius: 5px; color: #000; cursor: pointer;">По умолчанию</button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <button onclick="if(window.tetrisGame) window.tetrisGame.startGame()" style="background: #00ff88; border: none; padding: 10px 15px; border-radius: 5px; color: #000; cursor: pointer; margin-right: 10px;">START</button>
+                <button onclick="if(window.tetrisGame) window.tetrisGame.togglePause()" style="background: #ffaa00; border: none; padding: 10px 15px; border-radius: 5px; color: #000; cursor: pointer;">PAUSE</button>
+            </div>
+
+            <!-- Мобильные элементы управления -->
+            <div class="mobile-controls" id="mobileControls">
+                <!-- Левая группа кнопок -->
+                <div class="control-group">
+                    <div class="control-row">
+                        <div class="control-btn" onclick="if(window.tetrisGame && !window.tetrisGame.isGameOver) window.tetrisGame.rotatePiece()" title="Поворот">↻</div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control-btn" onclick="if(window.tetrisGame && !window.tetrisGame.isGameOver) window.tetrisGame.movePieceLeft()" title="Влево">←</div>
+                        <div class="control-btn" onclick="if(window.tetrisGame && !window.tetrisGame.isGameOver) window.tetrisGame.movePieceDown()" title="Вниз">↓</div>
+                        <div class="control-btn" onclick="if(window.tetrisGame && !window.tetrisGame.isGameOver) window.tetrisGame.movePieceRight()" title="Вправо">→</div>
+                    </div>
+                </div>
+
+                <!-- Центральные кнопки -->
+                <div class="control-group">
+                    <div class="control-row">
+                        <div class="control-btn large" onclick="if(window.tetrisGame && !window.tetrisGame.isGameOver) window.tetrisGame.hardDropPiece()" title="Hard Drop">⬇</div>
+                    </div>
+                </div>
+
+                <!-- Правая группа кнопок -->
+                <div class="control-group">
+                    <div class="control-row">
+                        <div class="control-btn secondary" onclick="if(window.tetrisGame) window.tetrisGame.togglePause()" title="Пауза">⏸</div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control-btn danger" onclick="if(window.tetrisGame) window.tetrisGame.startGame()" title="Рестарт">↺</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #00ff88; margin-bottom: 10px;">📊 System Status</h3>
+                <div id="systemStatus" style="font-size: 0.8rem; color: #ccc;">
+                    Logger: <span id="loggerStatus" style="color: #00ff88;">Active</span><br>
+                    Error Handler: <span id="errorHandlerStatus" style="color: #00ff88;">Active</span><br>
+                    Canvas: <span id="canvasStatus" style="color: #ffaa00;">Checking...</span><br>
+                    Storage: <span id="storageStatus" style="color: #ffaa00;">Checking...</span>
+                </div>
+            </div>
+
+            <div style="font-size: 0.8rem; color: #666; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                <div><strong>Version:</strong> 2.0.0 Working</div>
+                <div><strong>Features:</strong> Fixed Controls, Error Handling, Logging</div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        /*
+         ============================================================================
+         TETRIS - WORKING VERSION WITH FIXED CONTROLS
+         ============================================================================
+         */
+
+        // =========================================================================
+        // THEME SYSTEM
+        // =========================================================================
+        function initializeTheme() {
+            const savedTheme = localStorage.getItem('tetris-theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            let theme = 'auto';
+            if (savedTheme) {
+                theme = savedTheme;
+            } else if (systemPrefersDark) {
+                theme = 'dark';
+            } else {
+                theme = 'light';
+            }
+
+            applyTheme(theme);
+            updateThemeIcon(theme);
+        }
+
+        function applyTheme(theme) {
+            const body = document.body;
+
+            if (theme === 'auto') {
+                const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                theme = systemPrefersDark ? 'dark' : 'light';
+            }
+
+            body.setAttribute('data-theme', theme);
+            localStorage.setItem('tetris-theme', theme);
+
+            // Update theme icon
+            updateThemeIcon(theme);
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+
+            let newTheme;
+            if (currentTheme === 'light') {
+                newTheme = 'dark';
+            } else {
+                newTheme = 'light';
+            }
+
+            applyTheme(newTheme);
+        }
+
+        function updateThemeIcon(theme) {
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.textContent = theme === 'light' ? '☀️' : '🌙';
+                themeToggle.title = `Switch to ${theme === 'light' ? 'dark' : 'light'} theme`;
+            }
+        }
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+
+            if (currentTheme === 'auto' || !currentTheme) {
+                applyTheme('auto');
+            }
+        });
+
+        // =========================================================================
+        // ENHANCED LOGGING SYSTEM
+        // =========================================================================
+        class Logger {
+            constructor() {
+                this.levels = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3, CRITICAL: 4 };
+                this.currentLevel = this.levels.INFO;
+                this.logHistory = [];
+                this.maxHistorySize = 1000;
+                this.errorCounts = { canvas: 0, storage: 0, audio: 0, input: 0, gameLogic: 0 };
+            }
+
+            log(level, message, context = 'SYSTEM', data = null) {
+                const levelNum = this.levels[level] || this.levels.INFO;
+                if (levelNum < this.currentLevel) return;
+
+                const timestamp = new Date().toISOString();
+                const formatted = `[${timestamp}] [${level}] [${context}] ${message}`;
+
+                // Add to history
+                this.logHistory.push({ timestamp: Date.now(), level, context, message, data });
+                if (this.logHistory.length > this.maxHistorySize) {
+                    this.logHistory.shift();
+                }
+
+                // Console output with styling
+                const styles = {
+                    DEBUG: 'color: #888',
+                    INFO: 'color: #00ff88',
+                    WARN: 'color: #ffaa00',
+                    ERROR: 'color: #ff4444',
+                    CRITICAL: 'color: #ff0088; font-weight: bold'
+                };
+
+                console.log(`%c${formatted}`, styles[level] || styles.INFO, data || '');
+            }
+
+            logGameEvent(event, data = null) {
+                this.log('INFO', `Game event: ${event}`, 'GAME', data);
+            }
+
+            logUserAction(action, details = null) {
+                this.log('INFO', `User action: ${action}`, 'USER', details);
+            }
+
+            getErrorStats() {
+                return { ...this.errorCounts };
+            }
+        }
+
+        // =========================================================================
+        // ERROR HANDLER SYSTEM
+        // =========================================================================
+        class ErrorHandler {
+            constructor(logger) {
+                this.logger = logger;
+                this.errorQueue = [];
+            }
+
+            async handleError(error, context = 'UNKNOWN', showUserNotification = true) {
+                this.logger.log('ERROR', `Error in ${context}: ${error.message}`, context, {
+                    stack: error.stack,
+                    timestamp: new Date().toISOString()
+                });
+
+                this.errorQueue.push({
+                    error: error.message,
+                    context,
+                    timestamp: Date.now(),
+                    stack: error.stack
+                });
+
+                // Try recovery strategies based on context
+                if (context.toLowerCase().includes('canvas')) {
+                    return await this.recoverFromCanvasError(error);
+                } else if (context.toLowerCase().includes('storage')) {
+                    return await this.recoverFromStorageError(error);
+                }
+
+                return false;
+            }
+
+            async recoverFromCanvasError(error) {
+                this.logger.log('INFO', 'Attempting canvas error recovery', 'CANVAS');
+
+                // Try software rendering fallback
+                const canvas = document.getElementById('gameCanvas');
+                if (canvas && !canvas.style.imageRendering) {
+                    canvas.style.imageRendering = 'pixelated';
+                    this.logger.log('INFO', 'Applied software rendering fallback', 'CANVAS');
+                    this.updateSystemStatus('canvas', 'Recovered');
+                    return true;
+                }
+
+                return false;
+            }
+
+            async recoverFromStorageError(error) {
+                this.logger.log('INFO', 'Attempting storage error recovery', 'STORAGE');
+
+                // Try memory storage fallback
+                if (typeof window !== 'undefined') {
+                    window.tetrisMemoryStorage = window.tetrisMemoryStorage || {};
+                    this.logger.log('INFO', 'Switched to memory storage fallback', 'STORAGE');
+                    this.updateSystemStatus('storage', 'Memory Mode');
+                    return true;
+                }
+
+                return false;
+            }
+
+            updateSystemStatus(component, status) {
+                const statusEl = document.getElementById(`${component}Status`);
+                if (statusEl) {
+                    statusEl.textContent = status;
+                    statusEl.style.color = status.includes('Error') ? '#ff4444' : '#00ff88';
+                }
+            }
+
+            showUserNotification(errorType) {
+                const notifications = {
+                    CANVAS_INIT: { title: 'Display Issue', message: 'Using basic rendering mode for compatibility.' },
+                    STORAGE_ERROR: { title: 'Storage Issue', message: 'Settings will not persist between sessions.' }
+                };
+
+                const notification = notifications[errorType];
+                if (!notification) return;
+
+                // Simple alert for demo - in production would use better UI
+                this.logger.log('INFO', `User notification: ${notification.title}`, 'UI');
+            }
+        }
+
+        // =========================================================================
+        // WORKING TETRIS GAME ENGINE WITH FIXED CONTROLS
+        // =========================================================================
+        class TetrisGame {
+            constructor(canvas) {
+                this.logger = new Logger();
+                this.errorHandler = new ErrorHandler(this.logger);
+
+                this.logger.log('INFO', 'Initializing Working Tetris Game Engine with Fixed Controls', 'GAME');
+
+                this.ROWS = 20;
+                this.COLS = 10;
+                this.CELL_SIZE = this.calculateOptimalCellSize();
+
+                this.initializeCanvas(canvas);
+                this.initializeGameState();
+                this.initializeKeySettings();
+                this.setupEventListeners();
+                this.initializeResponsiveFeatures();
+
+                this.logger.log('INFO', 'Tetris Game Engine initialized successfully', 'GAME');
+                this.updateSystemStatus();
+            }
+
+            calculateOptimalCellSize() {
+                const screenWidth = window.innerWidth;
+
+                if (screenWidth <= 768) {
+                    // Mobile: smaller cells for touch interface
+                    return Math.max(20, Math.min(30, screenWidth / 14));
+                } else if (screenWidth <= 1024) {
+                    // Tablet: medium cells
+                    return Math.max(25, Math.min(35, screenWidth / 16));
+                } else {
+                    // Desktop: larger cells for better visibility
+                    return Math.max(28, Math.min(40, screenWidth / 18));
+                }
+            }
+
+            initializeResponsiveFeatures() {
+                // Enhanced statistics tracking
+                this.statistics = {
+                    gamesPlayed: 0,
+                    totalScore: 0,
+                    bestScore: parseInt(localStorage.getItem('tetris-best-score')) || 0,
+                    linesCleared: 0,
+                    piecesPlaced: 0,
+                    playTime: 0
+                };
+
+                // Animation state
+                this.animations = {
+                    pieceDrop: false,
+                    lineClear: new Set(),
+                    gameOver: false
+                };
+
+                // Next piece preview
+                this.nextPieceCanvas = document.getElementById('nextPieceCanvas');
+                if (this.nextPieceCanvas) {
+                    this.nextPieceCtx = this.nextPieceCanvas.getContext('2d');
+                }
+
+                // Responsive canvas sizing
+                this.updateCanvasSize();
+
+                // Window resize handler
+                window.addEventListener('resize', () => {
+                    this.handleResize();
+                });
+
+                // Orientation change handler for mobile
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(() => this.handleResize(), 100);
+                });
+            }
+
+            handleResize() {
+                this.logger.log('INFO', 'Window resized, updating layout', 'RESPONSIVE');
+
+                // Update cell size based on new dimensions
+                this.CELL_SIZE = this.calculateOptimalCellSize();
+                this.updateCanvasSize();
+
+                // Force layout recalculation
+                this.updateUI();
+            }
+
+            updateCanvasSize() {
+                if (!this.ctx) return;
+
+                const container = this.ctx.canvas.parentElement;
+                const containerWidth = container.clientWidth;
+                const maxWidth = Math.min(containerWidth - 40, 600);
+
+                const canvasWidth = this.COLS * this.CELL_SIZE;
+                const canvasHeight = this.ROWS * this.CELL_SIZE;
+
+                // Maintain aspect ratio
+                const aspectRatio = canvasWidth / canvasHeight;
+                let newWidth = maxWidth;
+                let newHeight = newWidth / aspectRatio;
+
+                // Update canvas attributes
+                this.ctx.canvas.width = newWidth;
+                this.ctx.canvas.height = newHeight;
+
+                // Scale the drawing context to maintain pixel-perfect rendering
+                const scaleX = newWidth / (this.COLS * this.CELL_SIZE);
+                const scaleY = newHeight / (this.ROWS * this.CELL_SIZE);
+
+                this.ctx.scale(scaleX, scaleY);
+
+                this.logger.log('INFO', `Canvas resized to ${newWidth}x${newHeight}`, 'CANVAS');
+            }
+
+            initializeCanvas(canvas) {
+                try {
+                    if (!canvas) {
+                        throw new Error('Canvas element not found');
+                    }
+
+                    this.ctx = canvas.getContext('2d');
+                    if (!this.ctx) {
+                        throw new Error('Failed to get 2D rendering context');
+                    }
+
+                    this.updateSystemStatus('canvas', 'OK');
+                    this.logger.log('INFO', 'Canvas initialized successfully', 'CANVAS');
+
+                } catch (error) {
+                    this.errorHandler.handleError(error, 'CANVAS_INIT');
+                    this.updateSystemStatus('canvas', 'Error');
+                }
+            }
+
+            initializeGameState() {
+                this.grid = Array(this.ROWS).fill().map(() => Array(this.COLS).fill(0));
+                this.currentPiece = null;
+                this.nextPiece = null;
+                this.score = 0;
+                this.lines = 0;
+                this.level = 1;
+                this.isPaused = true;
+                this.isGameOver = false;
+
+                // Enhanced session tracking
+                this.sessionStartTime = Date.now();
+                this.sessionPlayTime = 0;
+                this.lastPlayTimeUpdate = Date.now();
+                this.piecesPlaced = 0;
+                this.linesClearedThisGame = 0;
+
+                // Animation state
+                this.animations = {
+                    pieceDrop: false,
+                    lineClear: new Set(),
+                    gameOver: false
+                };
+
+                // Generate first piece and next piece
+                this.generateNewPiece();
+                this.generateNextPiece();
+
+                this.logger.logGameEvent('GAME_STATE_INITIALIZED');
+            }
+
+            generateNewPiece() {
+                const pieces = [
+                    { type: 'I', shape: [[1,1,1,1]], color: '#00f5ff' },
+                    { type: 'O', shape: [[1,1],[1,1]], color: '#ffff00' },
+                    { type: 'T', shape: [[0,1,0],[1,1,1]], color: '#800080' },
+                    { type: 'S', shape: [[0,1,1],[1,1,0]], color: '#00ff00' },
+                    { type: 'Z', shape: [[1,1,0],[0,1,1]], color: '#ff0000' },
+                    { type: 'J', shape: [[1,0,0],[1,1,1]], color: '#0000ff' },
+                    { type: 'L', shape: [[0,0,1],[1,1,1]], color: '#ff8c00' }
+                ];
+
+                this.currentPiece = {
+                    ...pieces[Math.floor(Math.random() * pieces.length)],
+                    row: 0,
+                    col: Math.floor(this.COLS / 2) - 1
+                };
+
+                this.animations.pieceDrop = true;
+                setTimeout(() => { this.animations.pieceDrop = false; }, 300);
+            }
+
+            generateNextPiece() {
+                const pieces = [
+                    { type: 'I', shape: [[1,1,1,1]], color: '#00f5ff' },
+                    { type: 'O', shape: [[1,1],[1,1]], color: '#ffff00' },
+                    { type: 'T', shape: [[0,1,0],[1,1,1]], color: '#800080' },
+                    { type: 'S', shape: [[0,1,1],[1,1,0]], color: '#00ff00' },
+                    { type: 'Z', shape: [[1,1,0],[0,1,1]], color: '#ff0000' },
+                    { type: 'J', shape: [[1,0,0],[1,1,1]], color: '#0000ff' },
+                    { type: 'L', shape: [[0,0,1],[1,1,1]], color: '#ff8c00' }
+                ];
+
+                this.nextPiece = pieces[Math.floor(Math.random() * pieces.length)];
+            }
+
+            initializeKeySettings() {
+                // Настройки клавиш по умолчанию
+                this.defaultKeySettings = {
+                    left: 'ArrowLeft',
+                    right: 'ArrowRight',
+                    down: 'ArrowDown',
+                    rotate: 'ArrowUp',
+                    drop: 'Space',
+                    pause: 'KeyP',
+                    restart: 'KeyR',
+                    sound: 'KeyM'
+                };
+
+                // Текущие настройки клавиш
+                this.keySettings = { ...this.defaultKeySettings };
+
+                // Загружаем настройки из localStorage если доступны
+                this.loadKeySettings();
+
+                this.logger.log('INFO', 'Key settings initialized', 'KEYBOARD');
+            }
+
+            loadKeySettings() {
+                try {
+                    const saved = localStorage.getItem('tetris-key-settings');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        this.keySettings = { ...this.defaultKeySettings, ...parsed };
+                        this.logger.log('INFO', 'Key settings loaded from storage', 'KEYBOARD');
+                    }
+                } catch (error) {
+                    this.logger.log('WARN', 'Failed to load key settings from storage', 'KEYBOARD');
+                }
+            }
+
+            saveKeySettings() {
+                try {
+                    localStorage.setItem('tetris-key-settings', JSON.stringify(this.keySettings));
+                    this.hideKeySettings();
+                    this.updateKeyboardControlsDisplay();
+                    this.logger.log('INFO', 'Key settings saved to storage', 'KEYBOARD');
+                } catch (error) {
+                    this.logger.log('ERROR', 'Failed to save key settings to storage', 'KEYBOARD');
+                }
+            }
+
+            resetKeySettings() {
+                this.keySettings = { ...this.defaultKeySettings };
+                this.updateKeySettingsInputs();
+                this.logger.log('INFO', 'Key settings reset to default', 'KEYBOARD');
+            }
+
+            showKeySettings() {
+                this.updateKeySettingsInputs();
+                document.getElementById('keySettingsModal').style.display = 'flex';
+                this.keySettingMode = true;
+
+                // Добавляем временные обработчики для захвата клавиш
+                this.tempKeyHandler = (event) => this.handleKeySettingInput(event);
+                document.addEventListener('keydown', this.tempKeyHandler);
+
+                this.logger.logUserAction('SHOW_KEY_SETTINGS');
+            }
+
+            hideKeySettings() {
+                document.getElementById('keySettingsModal').style.display = 'none';
+                this.keySettingMode = false;
+                if (this.tempKeyHandler) {
+                    document.removeEventListener('keydown', this.tempKeyHandler);
+                    this.tempKeyHandler = null;
+                }
+            }
+
+            cancelKeySettings() {
+                this.loadKeySettings(); // Восстанавливаем сохраненные настройки
+                this.hideKeySettings();
+            }
+
+            updateKeySettingsInputs() {
+                const keyMap = {
+                    'keyLeft': this.keySettings.left,
+                    'keyRight': this.keySettings.right,
+                    'keyDown': this.keySettings.down,
+                    'keyRotate': this.keySettings.rotate,
+                    'keyDrop': this.keySettings.drop,
+                    'keyPause': this.keySettings.pause,
+                    'keyRestart': this.keySettings.restart,
+                    'keySound': this.keySettings.sound
+                };
+
+                Object.entries(keyMap).forEach(([inputId, keyCode]) => {
+                    const input = document.getElementById(inputId);
+                    if (input) {
+                        input.value = this.getKeyDisplayName(keyCode);
+                    }
+                });
+            }
+
+            handleKeySettingInput(event) {
+                event.preventDefault();
+
+                // Не захватываем служебные клавиши
+                if (event.key === 'Escape') {
+                    this.cancelKeySettings();
+                    return;
+                }
+
+                if (event.key === 'Enter') {
+                    this.saveKeySettings();
+                    return;
+                }
+
+                // Находим активное поле ввода
+                const activeInput = document.querySelector('#keySettingsModal input:focus');
+                if (activeInput) {
+                    const inputId = activeInput.id;
+                    this.keySettings[this.getKeyActionFromInputId(inputId)] = event.code;
+                    activeInput.value = this.getKeyDisplayName(event.code);
+
+                    // Автоматически переходим к следующему полю
+                    this.focusNextKeyInput(inputId);
+                }
+            }
+
+            getKeyActionFromInputId(inputId) {
+                const map = {
+                    'keyLeft': 'left',
+                    'keyRight': 'right',
+                    'keyDown': 'down',
+                    'keyRotate': 'rotate',
+                    'keyDrop': 'drop',
+                    'keyPause': 'pause',
+                    'keyRestart': 'restart',
+                    'keySound': 'sound'
+                };
+                return map[inputId] || 'left';
+            }
+
+            focusNextKeyInput(currentInputId) {
+                const inputIds = ['keyLeft', 'keyRight', 'keyDown', 'keyRotate', 'keyDrop', 'keyPause', 'keyRestart', 'keySound'];
+                const currentIndex = inputIds.indexOf(currentInputId);
+                const nextIndex = (currentIndex + 1) % inputIds.length;
+                const nextInput = document.getElementById(inputIds[nextIndex]);
+                if (nextInput) {
+                    nextInput.focus();
+                }
+            }
+
+            getKeyDisplayName(keyCode) {
+                const keyNames = {
+                    'ArrowLeft': '←',
+                    'ArrowRight': '→',
+                    'ArrowDown': '↓',
+                    'ArrowUp': '↑',
+                    'Space': 'Пробел',
+                    'KeyP': 'P',
+                    'KeyR': 'R',
+                    'KeyM': 'M',
+                    'KeyZ': 'Z'
+                };
+                return keyNames[keyCode] || keyCode.replace('Key', '');
+            }
+
+            updateKeyboardControlsDisplay() {
+                const controlsDiv = document.getElementById('keyboardControls');
+                if (controlsDiv) {
+                    controlsDiv.innerHTML = `
+                        <div>${this.getKeyDisplayName(this.keySettings.left)}/${this.getKeyDisplayName(this.keySettings.right)} Move | ${this.getKeyDisplayName(this.keySettings.down)} Soft Drop | ${this.getKeyDisplayName(this.keySettings.drop)} Hard Drop</div>
+                        <div>${this.getKeyDisplayName(this.keySettings.rotate)}/${this.getKeyDisplayName(this.keySettings.rotate)} Rotate | ${this.getKeyDisplayName(this.keySettings.pause)} Pause | ${this.getKeyDisplayName(this.keySettings.restart)} Restart</div>
+                    `;
+                }
+            }
+
+            setupEventListeners() {
+                // Клавиатурное управление
+                document.addEventListener('keydown', (event) => {
+                    this.handleKeyPress(event);
+                });
+
+                // Сенсорное управление
+                this.setupTouchControls();
+
+                // Поддержка геймпадов
+                this.setupGamepadSupport();
+
+                // Обнаружение мобильных устройств
+                this.detectMobileDevice();
+
+                this.logger.log('INFO', 'Event listeners setup complete', 'INPUT');
+            }
+
+            setupTouchControls() {
+                const canvas = document.getElementById('gameCanvas');
+                if (!canvas) return;
+
+                // Переменные для отслеживания касаний
+                this.touchStartX = 0;
+                this.touchStartY = 0;
+                this.touchStartTime = 0;
+                this.isSwiping = false;
+                this.swipeThreshold = 50; // Минимальная дистанция для свайпа
+                this.tapThreshold = 300; // Максимальное время для тапа (мс)
+
+                // Обработчики событий касания для canvas
+                canvas.addEventListener('touchstart', (event) => {
+                    this.handleTouchStart(event);
+                }, { passive: false });
+
+                canvas.addEventListener('touchmove', (event) => {
+                    this.handleTouchMove(event);
+                }, { passive: false });
+
+                canvas.addEventListener('touchend', (event) => {
+                    this.handleTouchEnd(event);
+                }, { passive: false });
+
+                // Обработчики для мобильных кнопок
+                this.setupMobileButtonHandlers();
+
+                this.logger.log('INFO', 'Touch controls initialized', 'TOUCH');
+            }
+
+            setupMobileButtonHandlers() {
+                // Добавляем обработчики для мобильных кнопок с тактильной обратной связью
+                const buttons = document.querySelectorAll('.control-btn');
+                buttons.forEach(button => {
+                    button.addEventListener('touchstart', (event) => {
+                        event.preventDefault();
+                        this.addTactileFeedback(button);
+
+                        // Вибрация на мобильных устройствах
+                        if (navigator.vibrate) {
+                            navigator.vibrate(50);
+                        }
+                    });
+
+                    button.addEventListener('touchend', (event) => {
+                        event.preventDefault();
+                        this.removeTactileFeedback(button);
+                    });
+                });
+            }
+
+            handleTouchStart(event) {
+                if (this.isGameOver) return;
+
+                event.preventDefault();
+                const touch = event.touches[0];
+                this.touchStartX = touch.clientX;
+                this.touchStartY = touch.clientY;
+                this.touchStartTime = Date.now();
+                this.isSwiping = false;
+
+                this.logger.logUserAction('TOUCH_START');
+            }
+
+            handleTouchMove(event) {
+                if (this.isGameOver || !this.touchStartX) return;
+
+                event.preventDefault();
+                const touch = event.touches[0];
+                const deltaX = touch.clientX - this.touchStartX;
+                const deltaY = touch.clientY - this.touchStartY;
+
+                // Определяем свайп если движение достаточно большое
+                if (Math.abs(deltaX) > this.swipeThreshold || Math.abs(deltaY) > this.swipeThreshold) {
+                    this.isSwiping = true;
+                    this.handleSwipe(deltaX, deltaY);
+                }
+            }
+
+            handleTouchEnd(event) {
+                if (this.isGameOver || !this.touchStartX) return;
+
+                event.preventDefault();
+                const touchEndTime = Date.now();
+                const touchDuration = touchEndTime - this.touchStartTime;
+
+                // Если это был короткий тап, а не свайп
+                if (!this.isSwiping && touchDuration < this.tapThreshold) {
+                    this.handleTap();
+                }
+
+                // Сбрасываем переменные касания
+                this.touchStartX = 0;
+                this.touchStartY = 0;
+                this.touchStartTime = 0;
+                this.isSwiping = false;
+
+                this.logger.logUserAction('TOUCH_END');
+            }
+
+            handleSwipe(deltaX, deltaY) {
+                if (this.isPaused || this.isGameOver || !this.currentPiece) return;
+
+                // Определяем направление свайпа
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    // Горизонтальный свайп
+                    if (deltaX > this.swipeThreshold) {
+                        this.movePieceRight();
+                        this.logger.logUserAction('SWIPE_RIGHT');
+                    } else if (deltaX < -this.swipeThreshold) {
+                        this.movePieceLeft();
+                        this.logger.logUserAction('SWIPE_LEFT');
+                    }
+                } else {
+                    // Вертикальный свайп
+                    if (deltaY > this.swipeThreshold) {
+                        this.movePieceDown();
+                        this.logger.logUserAction('SWIPE_DOWN');
+                    } else if (deltaY < -this.swipeThreshold) {
+                        this.rotatePiece();
+                        this.logger.logUserAction('SWIPE_UP');
+                    }
+                }
+            }
+
+            handleTap() {
+                if (this.isPaused || this.isGameOver || !this.currentPiece) return;
+
+                // Тап выполняет hard drop
+                this.hardDropPiece();
+                this.logger.logUserAction('TAP_HARD_DROP');
+
+                // Вибрация на мобильных устройствах
+                if (navigator.vibrate) {
+                    navigator.vibrate(100);
+                }
+            }
+
+            detectMobileDevice() {
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                                window.innerWidth <= 768;
+                this.hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+                if (isMobile || this.hasTouch) {
+                    this.showMobileControls();
+                    this.logger.log('INFO', 'Mobile/Touch device detected, showing touch controls', 'MOBILE');
+                }
+            }
+
+            showMobileControls() {
+                const mobileControls = document.getElementById('mobileControls');
+                if (mobileControls) {
+                    mobileControls.classList.add('show');
+                }
+            }
+
+            setupGamepadSupport() {
+                this.gamepadConnected = false;
+                this.gamepadState = {
+                    buttons: {},
+                    axes: {}
+                };
+
+                // Проверяем поддержку геймпадов
+                if ('getGamepads' in navigator) {
+                    window.addEventListener('gamepadconnected', (event) => {
+                        this.onGamepadConnected(event);
+                    });
+
+                    window.addEventListener('gamepaddisconnected', (event) => {
+                        this.onGamepadDisconnected(event);
+                    });
+
+                    // Запускаем игровой цикл для геймпада
+                    this.startGamepadLoop();
+
+                    this.logger.log('INFO', 'Gamepad support initialized', 'GAMEPAD');
+                } else {
+                    this.logger.log('WARN', 'Gamepad API not supported in this browser', 'GAMEPAD');
+                }
+            }
+
+            onGamepadConnected(event) {
+                this.gamepadConnected = true;
+                this.logger.log('INFO', `Gamepad connected: ${event.gamepad.id}`, 'GAMEPAD');
+                this.updateSystemStatus('gamepad', 'Connected');
+            }
+
+            onGamepadDisconnected(event) {
+                this.gamepadConnected = false;
+                this.gamepadState = { buttons: {}, axes: {} };
+                this.logger.log('INFO', 'Gamepad disconnected', 'GAMEPAD');
+                this.updateSystemStatus('gamepad', 'Disconnected');
+            }
+
+            startGamepadLoop() {
+                const gamepadLoop = () => {
+                    if (this.gamepadConnected && !this.isGameOver) {
+                        this.updateGamepadState();
+                        this.handleGamepadInput();
+                    }
+                    requestAnimationFrame(gamepadLoop);
+                };
+                gamepadLoop();
+            }
+
+            updateGamepadState() {
+                const gamepads = navigator.getGamepads();
+                for (let i = 0; i < gamepads.length; i++) {
+                    const gamepad = gamepads[i];
+                    if (gamepad) {
+                        // Обновляем состояние кнопок
+                        for (let buttonIndex = 0; buttonIndex < gamepad.buttons.length; buttonIndex++) {
+                            const button = gamepad.buttons[buttonIndex];
+                            const wasPressed = this.gamepadState.buttons[buttonIndex];
+                            const isPressed = button.pressed;
+
+                            if (isPressed && !wasPressed) {
+                                this.handleGamepadButtonPress(buttonIndex, button);
+                            }
+
+                            this.gamepadState.buttons[buttonIndex] = isPressed;
+                        }
+
+                        // Обновляем состояние осей (аналоговые стики)
+                        for (let axisIndex = 0; axisIndex < gamepad.axes.length; axisIndex++) {
+                            this.gamepadState.axes[axisIndex] = gamepad.axes[axisIndex];
+                        }
+                    }
+                }
+            }
+
+            handleGamepadButtonPress(buttonIndex, button) {
+                if (this.isPaused || this.isGameOver) return;
+
+                let action = null;
+                let handled = false;
+
+                switch (buttonIndex) {
+                    case 0: // Кнопка A (Xbox) / X (PlayStation)
+                        action = 'ROTATE';
+                        handled = this.rotatePiece();
+                        break;
+                    case 1: // Кнопка B (Xbox) / Circle (PlayStation)
+                        action = 'HARD_DROP';
+                        handled = this.hardDropPiece() > 0;
+                        break;
+                    case 2: // Кнопка X (Xbox) / Square (PlayStation)
+                        action = 'PAUSE';
+                        this.togglePause();
+                        handled = true;
+                        break;
+                    case 3: // Кнопка Y (Xbox) / Triangle (PlayStation)
+                        action = 'RESTART';
+                        this.startGame();
+                        handled = true;
+                        break;
+                    case 12: // D-pad Up
+                        action = 'ROTATE';
+                        handled = this.rotatePiece();
+                        break;
+                    case 13: // D-pad Down
+                        action = 'SOFT_DROP';
+                        handled = this.movePieceDown();
+                        break;
+                    case 14: // D-pad Left
+                        action = 'MOVE_LEFT';
+                        handled = this.movePieceLeft();
+                        break;
+                    case 15: // D-pad Right
+                        action = 'MOVE_RIGHT';
+                        handled = this.movePieceRight();
+                        break;
+                }
+
+                if (handled && action) {
+                    this.logger.logUserAction(`GAMEPAD_${action}`, { button: buttonIndex });
+
+                    // Вибрация при нажатии кнопки
+                    if (navigator.vibrate && button.value > 0.1) {
+                        navigator.vibrate(button.value * 100);
+                    }
+                }
+            }
+
+            handleGamepadInput() {
+                if (this.isPaused || this.isGameOver || !this.currentPiece) return;
+
+                const gamepads = navigator.getGamepads();
+                for (let i = 0; i < gamepads.length; i++) {
+                    const gamepad = gamepads[i];
+                    if (gamepad) {
+                        // Левый аналоговый стик для движения
+                        const leftStickX = gamepad.axes[0];
+                        const leftStickY = gamepad.axes[1];
+
+                        if (Math.abs(leftStickX) > 0.3) {
+                            if (leftStickX > 0.3) {
+                                this.movePieceRight();
+                            } else if (leftStickX < -0.3) {
+                                this.movePieceLeft();
+                            }
+                        }
+
+                        if (Math.abs(leftStickY) > 0.3) {
+                            if (leftStickY > 0.3) {
+                                this.movePieceDown();
+                            } else if (leftStickY < -0.3) {
+                                this.rotatePiece();
+                            }
+                        }
+
+                        // Правый аналоговый стик для быстрого падения
+                        const rightStickY = gamepad.axes[3];
+                        if (rightStickY < -0.5) {
+                            this.hardDropPiece();
+                        }
+                    }
+                }
+            }
+
+            addTactileFeedback(element) {
+                element.classList.add('tactile');
+            }
+
+            removeTactileFeedback(element) {
+                element.classList.remove('tactile');
+            }
+
+            handleKeyPress(event) {
+                if (this.isGameOver || this.keySettingMode) return;
+
+                let handled = false;
+                const keyCode = event.code;
+
+                // Проверяем конфликты клавиш
+                if (!this.checkKeyConflicts(keyCode)) {
+                    return;
+                }
+
+                switch (keyCode) {
+                    case this.keySettings.left:
+                        handled = this.movePieceLeft();
+                        break;
+                    case this.keySettings.right:
+                        handled = this.movePieceRight();
+                        break;
+                    case this.keySettings.down:
+                        handled = this.movePieceDown();
+                        break;
+                    case this.keySettings.rotate:
+                        handled = this.rotatePiece();
+                        break;
+                    case this.keySettings.drop:
+                        event.preventDefault();
+                        handled = this.hardDropPiece();
+                        break;
+                    case this.keySettings.pause:
+                        this.togglePause();
+                        handled = true;
+                        break;
+                    case this.keySettings.restart:
+                        this.startGame();
+                        handled = true;
+                        break;
+                    case this.keySettings.sound:
+                        this.toggleSound();
+                        handled = true;
+                        break;
+                }
+
+                if (handled) {
+                    this.logger.logUserAction(keyCode, { piece: this.currentPiece?.type });
+                }
+
+                // Предотвращаем обработку всех настроенных клавиш
+                const allKeys = Object.values(this.keySettings);
+                if (allKeys.includes(keyCode)) {
+                    event.preventDefault();
+                }
+            }
+
+            checkKeyConflicts(keyCode) {
+                const actions = Object.values(this.keySettings);
+                const conflicts = actions.filter(key => key === keyCode);
+
+                if (conflicts.length > 1) {
+                    this.logger.log('WARN', `Key conflict detected for: ${keyCode}`, 'KEYBOARD');
+                    return false;
+                }
+
+                return true;
+            }
+
+            toggleSound() {
+                // Заглушка для функции звука (может быть реализована позже)
+                this.logger.logUserAction('SOUND_TOGGLE');
+            }
+
+            startGame() {
+                // Update statistics
+                if (!this.isPaused || this.isGameOver) {
+                    this.statistics.gamesPlayed++;
+                    if (this.score > 0) {
+                        this.statistics.totalScore += this.score;
+                    }
+                    this.saveStatistics();
+                }
+
+                this.initializeGameState();
+                this.updateUI();
+                this.logger.logGameEvent('GAME_STARTED');
+            }
+
+            togglePause() {
+                if (this.isGameOver) return;
+                this.isPaused = !this.isPaused;
+
+                if (this.isPaused) {
+                    this.sessionPlayTime += Date.now() - this.lastPlayTimeUpdate;
+                } else {
+                    this.lastPlayTimeUpdate = Date.now();
+                }
+
+                this.logger.logGameEvent(this.isPaused ? 'GAME_PAUSED' : 'GAME_RESUMED');
+                this.updateUI();
+            }
+
+            saveStatistics() {
+                try {
+                    localStorage.setItem('tetris-statistics', JSON.stringify(this.statistics));
+                    if (this.score > this.statistics.bestScore) {
+                        this.statistics.bestScore = this.score;
+                        localStorage.setItem('tetris-best-score', this.score.toString());
+                    }
+                } catch (error) {
+                    this.logger.log('WARN', 'Failed to save statistics', 'STORAGE');
+                }
+            }
+
+            loadStatistics() {
+                try {
+                    const saved = localStorage.getItem('tetris-statistics');
+                    if (saved) {
+                        this.statistics = { ...this.statistics, ...JSON.parse(saved) };
+                    }
+                } catch (error) {
+                    this.logger.log('WARN', 'Failed to load statistics', 'STORAGE');
+                }
+            }
+
+            movePieceLeft() {
+                if (!this.currentPiece || this.isPaused || this.isGameOver) return false;
+                if (this.isValidPosition(this.currentPiece, this.currentPiece.row, this.currentPiece.col - 1)) {
+                    this.currentPiece.col--;
+                    return true;
+                }
+                return false;
+            }
+
+            movePieceRight() {
+                if (!this.currentPiece || this.isPaused || this.isGameOver) return false;
+                if (this.isValidPosition(this.currentPiece, this.currentPiece.row, this.currentPiece.col + 1)) {
+                    this.currentPiece.col++;
+                    return true;
+                }
+                return false;
+            }
+
+            movePieceDown() {
+                if (!this.currentPiece || this.isPaused || this.isGameOver) return false;
+                if (this.isValidPosition(this.currentPiece, this.currentPiece.row + 1, this.currentPiece.col)) {
+                    this.currentPiece.row++;
+                    return true;
+                }
+                return false;
+            }
+
+            rotatePiece() {
+                if (!this.currentPiece || this.isPaused || this.isGameOver) return false;
+                const rotatedShape = this.rotateMatrix(this.currentPiece.shape);
+                if (this.isValidPositionWithShape(rotatedShape, this.currentPiece.row, this.currentPiece.col)) {
+                    this.currentPiece.shape = rotatedShape;
+                    return true;
+                }
+                return false;
+            }
+
+            hardDropPiece() {
+                if (!this.currentPiece || this.isPaused || this.isGameOver) return 0;
+                let dropDistance = 0;
+                while (this.movePieceDown()) {
+                    dropDistance++;
+                }
+
+                // Bonus points for hard drop
+                if (dropDistance > 0) {
+                    this.score += dropDistance * 2;
+                    this.logger.logGameEvent('HARD_DROP', { distance: dropDistance, points: dropDistance * 2 });
+                }
+
+                return dropDistance;
+            }
+
+            placePiece() {
+                if (!this.currentPiece) return;
+
+                // Place piece on grid
+                const shape = this.currentPiece.shape;
+                for (let row = 0; row < shape.length; row++) {
+                    for (let col = 0; col < shape[row].length; col++) {
+                        if (shape[row][col]) {
+                            const gridRow = this.currentPiece.row + row;
+                            const gridCol = this.currentPiece.col + col;
+
+                            if (gridRow >= 0 && gridRow < this.ROWS && gridCol >= 0 && gridCol < this.COLS) {
+                                this.grid[gridRow][gridCol] = {
+                                    color: this.currentPiece.color,
+                                    placed: Date.now()
+                                };
+                            }
+                        }
+                    }
+                }
+
+                this.piecesPlaced++;
+                this.animations.pieceDrop = false;
+
+                // Check for line clears
+                this.checkLineClears();
+
+                // Check for game over
+                if (!this.generateNextPieceFromQueue()) {
+                    this.gameOver();
+                }
+
+                this.updateUI();
+            }
+
+            generateNextPieceFromQueue() {
+                // Move next piece to current
+                if (this.nextPiece) {
+                    this.currentPiece = {
+                        ...this.nextPiece,
+                        row: 0,
+                        col: Math.floor(this.COLS / 2) - 1
+                    };
+                    this.generateNextPiece();
+                    return true;
+                }
+                return false;
+            }
+
+            checkLineClears() {
+                const linesToClear = [];
+
+                for (let row = 0; row < this.ROWS; row++) {
+                    if (this.grid[row].every(cell => cell !== 0)) {
+                        linesToClear.push(row);
+                    }
+                }
+
+                if (linesToClear.length > 0) {
+                    this.clearLines(linesToClear);
+                }
+            }
+
+            clearLines(lines) {
+                // Start line clear animation
+                lines.forEach(row => {
+                    this.animations.lineClear.add(row);
+                });
+                this.lineClearStartTime = Date.now();
+
+                setTimeout(() => {
+                    // Remove lines after animation
+                    lines.sort((a, b) => b - a); // Remove from bottom up
+
+                    lines.forEach(row => {
+                        this.grid.splice(row, 1);
+                        this.grid.unshift(Array(this.COLS).fill(0));
+                        this.animations.lineClear.delete(row);
+                    });
+
+                    // Update score based on lines cleared
+                    const points = [0, 100, 300, 500, 800][lines.length];
+                    this.score += points * this.level;
+                    this.linesClearedThisGame += lines.length;
+
+                    // Update level
+                    this.level = Math.floor(this.linesClearedThisGame / 10) + 1;
+
+                    this.logger.logGameEvent('LINES_CLEARED', {
+                        lines: lines.length,
+                        points: points,
+                        totalScore: this.score
+                    });
+
+                    this.updateUI();
+                }, 500);
+            }
+
+            gameOver() {
+                this.isGameOver = true;
+                this.isPaused = true;
+                this.saveStatistics();
+
+                this.logger.logGameEvent('GAME_OVER', {
+                    score: this.score,
+                    level: this.level,
+                    lines: this.linesClearedThisGame,
+                    pieces: this.piecesPlaced
+                });
+
+                this.updateUI();
+            }
+
+            isValidPosition(piece, row, col) {
+                const shape = piece.shape;
+                for (let r = 0; r < shape.length; r++) {
+                    for (let c = 0; c < shape[r].length; c++) {
+                        if (shape[r][c]) {
+                            const newRow = row + r;
+                            const newCol = col + c;
+                            if (newRow < 0 || newRow >= this.ROWS || newCol < 0 || newCol >= this.COLS || this.grid[newRow][newCol]) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+
+            isValidPositionWithShape(shape, row, col) {
+                for (let r = 0; r < shape.length; r++) {
+                    for (let c = 0; c < shape[r].length; c++) {
+                        if (shape[r][c]) {
+                            const newRow = row + r;
+                            const newCol = col + c;
+                            if (newRow < 0 || newRow >= this.ROWS || newCol < 0 || newCol >= this.COLS || this.grid[newRow][newCol]) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+
+            rotateMatrix(matrix) {
+                const rows = matrix.length;
+                const cols = matrix[0].length;
+                const rotated = Array(cols).fill().map(() => Array(rows).fill(0));
+
+                for (let i = 0; i < rows; i++) {
+                    for (let j = 0; j < cols; j++) {
+                        rotated[j][rows - 1 - i] = matrix[i][j];
+                    }
+                }
+
+                return rotated;
+            }
+
+            updateUI() {
+                // Update game status
+                const statusDot = document.getElementById('statusDot');
+                const statusText = document.getElementById('statusText');
+
+                if (this.isGameOver) {
+                    statusDot.className = 'status-dot game-over animate-game-over';
+                    statusText.textContent = 'Game Over';
+                } else if (this.isPaused) {
+                    statusDot.className = 'status-dot paused';
+                    statusText.textContent = 'Paused';
+                } else {
+                    statusDot.className = 'status-dot playing';
+                    statusText.textContent = 'Playing';
+                }
+
+                // Update score and statistics
+                document.getElementById('scoreDisplay').textContent = this.score;
+
+                // Update desktop-only statistics
+                const linesClearedEl = document.getElementById('linesCleared');
+                const currentLevelEl = document.getElementById('currentLevel');
+                const piecesPlacedEl = document.getElementById('piecesPlaced');
+                const sessionTimeEl = document.getElementById('sessionTime');
+                const bestScoreEl = document.getElementById('bestScore');
+                const gamesPlayedEl = document.getElementById('gamesPlayed');
+                const avgScoreEl = document.getElementById('avgScore');
+
+                if (linesClearedEl) linesClearedEl.textContent = this.linesClearedThisGame;
+                if (currentLevelEl) currentLevelEl.textContent = this.level;
+                if (piecesPlacedEl) piecesPlacedEl.textContent = this.piecesPlaced;
+
+                if (sessionTimeEl) {
+                    const totalPlayTime = this.sessionPlayTime + (this.isPaused ? 0 : Date.now() - this.lastPlayTimeUpdate);
+                    sessionTimeEl.textContent = this.formatTime(totalPlayTime);
+                }
+
+                if (bestScoreEl) bestScoreEl.textContent = this.statistics.bestScore;
+                if (gamesPlayedEl) gamesPlayedEl.textContent = this.statistics.gamesPlayed;
+                if (avgScoreEl) {
+                    const avg = this.statistics.gamesPlayed > 0 ?
+                        Math.round(this.statistics.totalScore / this.statistics.gamesPlayed) : 0;
+                    avgScoreEl.textContent = avg;
+                }
+
+                // Update next piece preview
+                this.updateNextPiecePreview();
+
+                // Update keyboard controls display if not already done
+                if (!this.controlsDisplayUpdated) {
+                    this.updateKeyboardControlsDisplay();
+                    this.controlsDisplayUpdated = true;
+                }
+            }
+
+            formatTime(milliseconds) {
+                const seconds = Math.floor(milliseconds / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+
+                if (hours > 0) {
+                    return `${hours}:${(minutes % 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+                } else {
+                    return `${minutes}:${(seconds % 60).toString().padStart(2, '0')}`;
+                }
+            }
+
+            updateNextPiecePreview() {
+                if (!this.nextPieceCtx || !this.nextPiece) return;
+
+                // Clear next piece canvas
+                this.nextPieceCtx.fillStyle = 'rgba(0, 0, 0, 0)';
+                this.nextPieceCtx.clearRect(0, 0, this.nextPieceCanvas.width, this.nextPieceCanvas.height);
+
+                // Calculate preview scale
+                const previewScale = Math.min(
+                    (this.nextPieceCanvas.width - 20) / (this.nextPiece.shape[0].length * this.CELL_SIZE),
+                    (this.nextPieceCanvas.height - 20) / (this.nextPiece.shape.length * this.CELL_SIZE)
+                );
+
+                // Center the piece in preview
+                const offsetX = (this.nextPieceCanvas.width - this.nextPiece.shape[0].length * this.CELL_SIZE * previewScale) / 2;
+                const offsetY = (this.nextPieceCanvas.height - this.nextPiece.shape.length * this.CELL_SIZE * previewScale) / 2;
+
+                this.nextPieceCtx.save();
+                this.nextPieceCtx.translate(offsetX, offsetY);
+                this.nextPieceCtx.scale(previewScale, previewScale);
+
+                // Draw next piece
+                for (let row = 0; row < this.nextPiece.shape.length; row++) {
+                    for (let col = 0; col < this.nextPiece.shape[row].length; col++) {
+                        if (this.nextPiece.shape[row][col]) {
+                            this.nextPieceCtx.fillStyle = this.nextPiece.color;
+                            this.nextPieceCtx.fillRect(
+                                col * this.CELL_SIZE + 1,
+                                row * this.CELL_SIZE + 1,
+                                this.CELL_SIZE - 2,
+                                this.CELL_SIZE - 2
+                            );
+
+                            this.nextPieceCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                            this.nextPieceCtx.lineWidth = 1;
+                            this.nextPieceCtx.strokeRect(
+                                col * this.CELL_SIZE + 1,
+                                row * this.CELL_SIZE + 1,
+                                this.CELL_SIZE - 2,
+                                this.CELL_SIZE - 2
+                            );
+                        }
+                    }
+                }
+
+                this.nextPieceCtx.restore();
+            }
+
+            updateSystemStatus() {
+                this.errorHandler.updateSystemStatus('logger', 'Active');
+                this.errorHandler.updateSystemStatus('errorHandler', 'Active');
+                this.errorHandler.updateSystemStatus('gamepad', this.gamepadConnected ? 'Connected' : 'Not Connected');
+                this.errorHandler.updateSystemStatus('touch', this.hasTouch ? 'Supported' : 'Not Supported');
+            }
+
+            // Enhanced game loop with performance management
+            gameLoop(currentTime = 0) {
+                if (this.isGameOver || this.isPaused) {
+                    this.draw();
+                    requestAnimationFrame((time) => this.gameLoop(time));
+                    return;
+                }
+
+                // Update play time
+                if (!this.isPaused && !this.isGameOver) {
+                    this.sessionPlayTime += currentTime - this.lastPlayTimeUpdate;
+                    this.lastPlayTimeUpdate = currentTime;
+                }
+
+                // Enhanced game logic
+                this.updateGameLogic();
+                this.draw();
+
+                requestAnimationFrame((time) => this.gameLoop(time));
+            }
+
+            updateGameLogic() {
+                // Auto-drop piece based on level
+                const dropInterval = Math.max(100, 1000 - (this.level - 1) * 100);
+
+                if (Date.now() - (this.lastDropTime || 0) > dropInterval) {
+                    if (!this.movePieceDown()) {
+                        this.placePiece();
+                    }
+                    this.lastDropTime = Date.now();
+                }
+            }
+
+            draw() {
+                if (!this.ctx) return;
+
+                // Clear canvas with background
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                this.ctx.fillRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+
+                // Draw grid lines with responsive opacity
+                const gridOpacity = window.innerWidth <= 768 ? '0.05' : '0.1';
+                this.ctx.strokeStyle = `rgba(255, 255, 255, ${gridOpacity})`;
+                this.ctx.lineWidth = 1;
+
+                for (let row = 0; row <= this.ROWS; row++) {
+                    const y = row * this.CELL_SIZE;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, y);
+                    this.ctx.lineTo(this.ctx.canvas.width, y);
+                    this.ctx.stroke();
+                }
+                for (let col = 0; col <= this.COLS; col++) {
+                    const x = col * this.CELL_SIZE;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, 0);
+                    this.ctx.lineTo(x, this.ctx.canvas.height);
+                    this.ctx.stroke();
+                }
+
+                // Draw grid pieces with animations
+                for (let row = 0; row < this.ROWS; row++) {
+                    for (let col = 0; col < this.COLS; col++) {
+                        if (this.grid[row][col]) {
+                            const isLineClearing = this.animations.lineClear.has(row);
+                            this.drawCell(row, col, this.grid[row][col].color || '#00ff88', isLineClearing);
+                        }
+                    }
+                }
+
+                // Draw current piece with animation
+                if (this.currentPiece) {
+                    this.drawPiece(this.currentPiece, this.animations.pieceDrop);
+                }
+            }
+
+            drawPiece(piece, isDropping = false) {
+                const shape = piece.shape;
+                const baseColor = piece.color || '#00ff88';
+
+                for (let row = 0; row < shape.length; row++) {
+                    for (let col = 0; col < shape[row].length; col++) {
+                        if (shape[row][col]) {
+                            const cellRow = piece.row + row;
+                            const cellCol = piece.col + col;
+
+                            // Enhanced color for dropping animation
+                            let cellColor = baseColor;
+                            if (isDropping) {
+                                const dropProgress = Math.min(1, (Date.now() - this.lastDropTime) / 300);
+                                const opacity = 0.7 + (0.3 * dropProgress);
+                                cellColor = this.adjustColorOpacity(baseColor, opacity);
+                            }
+
+                            this.drawCell(cellRow, cellCol, cellColor, false, isDropping);
+                        }
+                    }
+                }
+            }
+
+            drawCell(row, col, color, isLineClearing = false, isDropping = false) {
+                const x = col * this.CELL_SIZE;
+                const y = row * this.CELL_SIZE;
+
+                // Animation effects
+                let finalColor = color;
+                let scale = 1;
+                let offsetX = 0;
+                let offsetY = 0;
+
+                if (isLineClearing) {
+                    const clearProgress = Math.min(1, (Date.now() - this.lineClearStartTime) / 500);
+                    scale = 1 + (0.1 * Math.sin(clearProgress * Math.PI));
+                    finalColor = this.adjustColorOpacity(color, 1 - clearProgress);
+                }
+
+                if (isDropping) {
+                    const dropProgress = Math.min(1, (Date.now() - this.lastDropTime) / 300);
+                    offsetY = -5 * (1 - dropProgress);
+                }
+
+                this.ctx.save();
+                this.ctx.translate(x + offsetX, y + offsetY);
+                this.ctx.scale(scale, scale);
+
+                // Draw cell with enhanced styling
+                this.ctx.fillStyle = finalColor;
+                this.ctx.fillRect(1, 1, this.CELL_SIZE - 2, this.CELL_SIZE - 2);
+
+                // Enhanced border
+                const borderOpacity = window.innerWidth <= 768 ? '0.2' : '0.3';
+                this.ctx.strokeStyle = `rgba(255, 255, 255, ${borderOpacity})`;
+                this.ctx.lineWidth = 1;
+                this.ctx.strokeRect(1, 1, this.CELL_SIZE - 2, this.CELL_SIZE - 2);
+
+                // Inner glow effect for current piece
+                if (!isLineClearing && color === (this.currentPiece?.color || '#00ff88')) {
+                    this.ctx.strokeStyle = 'rgba(0, 255, 136, 0.3)';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(2, 2, this.CELL_SIZE - 4, this.CELL_SIZE - 4);
+                }
+
+                this.ctx.restore();
+            }
+
+            adjustColorOpacity(color, opacity) {
+                // Simple opacity adjustment for hex colors
+                if (color.startsWith('#')) {
+                    const hex = color.slice(1);
+                    const r = parseInt(hex.slice(0, 2), 16);
+                    const g = parseInt(hex.slice(2, 4), 16);
+                    const b = parseInt(hex.slice(4, 6), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                }
+                return color;
+            }
+        }
+
+        // =========================================================================
+        // APPLICATION INITIALIZATION
+        // =========================================================================
+
+        // Глобальная переменная для доступа из onclick обработчиков
+        window.tetrisGame = null;
+        let tetrisGame;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize theme system
+            initializeTheme();
+
+            const gameCanvas = document.getElementById('gameCanvas');
+            if (!gameCanvas) {
+                console.error('Game canvas not found');
+                return;
+            }
+
+            tetrisGame = new TetrisGame(gameCanvas);
+            window.tetrisGame = tetrisGame;
+
+            // Load statistics
+            tetrisGame.loadStatistics();
+
+            // Start game loop
+            tetrisGame.gameLoop();
+
+            console.log('🎮 Working Tetris Game loaded successfully!');
+            console.log('✨ Features: Fixed Controls, Error Handling, Responsive Design');
+            console.log('🎯 Status: All buttons and controls are now working correctly');
+        });
+
+        // Make functions globally accessible
+        window.tetrisGame = tetrisGame;
+        window.toggleTheme = toggleTheme;
+    </script>
+</body>
+</html>
