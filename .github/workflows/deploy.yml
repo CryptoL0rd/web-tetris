@@ -24,9 +24,13 @@ jobs:
       run: |
         npm ci
 
-    - name: Build project 🏗️
+    - name: Prepare static files 📁
       run: |
-        npm run build
+        mkdir -p dist
+        cp *.html dist/
+        cp *.js dist/ 2>/dev/null || true
+        cp *.css dist/ 2>/dev/null || true
+        cp -r docs dist/ 2>/dev/null || true
 
     - name: Setup Pages 📄
       uses: actions/configure-pages@v4
