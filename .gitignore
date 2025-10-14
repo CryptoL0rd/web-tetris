@@ -1,0 +1,170 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# Browser cache and local data
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.temp/
+
+# Tetris-specific game data
+game-saves/
+saves/
+*.save
+*.sav
+user-data/
+player-data/
+scores/
+local-scores.json
+game-progress.json
+settings.json
+user-settings.json
+
+# Game session files
+session-*.json
+current-game.json
+temp-session/
+game-state/
+
+# Local statistics
+stats/
+statistics/
+local-stats.json
+player-stats.json
+
+# API keys and sensitive data
+config/api-keys.json
+secrets/
+*.key
+*.pem
+private/
+security/
+
+# Certificates
+certs/
+certificates/
+*.crt
+*.p12
+*.pfx
+
+# Backup files
+*.bak
+*.backup
+*~
+*.orig
+
+# Compiled files
+*.min.js
+*.min.css
+
+# Testing
+.nyc_output/
+test-results/
+coverage/
+
+# Documentation build
+docs-build/
+site/
+
+# Development server
+.serverless/
+.vercel/
+.netlify/
+
+# Database (if using local)
+*.db
+*.sqlite
+*.sqlite3
+
+# Audio/Video assets (if using local processing)
+audio-cache/
+video-cache/
+media-temp/
+
+# Compression
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# OS generated files
+.fuse_hidden*
+.directory
+.DocumentRevisions-V100
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDouble
+.LSOverride
+
+# Network drives
+.Network Trash Folder
+Temporary Items
+.apdisk
