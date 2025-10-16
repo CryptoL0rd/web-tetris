@@ -695,8 +695,8 @@
             </div>
 
             <div style="margin-bottom: 20px;">
-                <button onclick="tetrisGame.startGame()" style="background: #00ff88; border: none; padding: 10px 15px; border-radius: 5px; color: #000; cursor: pointer; margin-right: 10px;">START</button>
-                <button onclick="tetrisGame.togglePause()" style="background: #ffaa00; border: none; padding: 10px 15px; border-radius: 5px; color: #000; cursor: pointer;">PAUSE</button>
+                <button onclick="tetrisGame.toggleStartPause()" id="startPauseBtn" style="background: #00ff88; border: none; padding: 10px 15px; border-radius: 5px; color: #000; cursor: pointer; margin-right: 10px; min-width: 80px;">START</button>
+                <button onclick="tetrisGame.resetGame()" style="background: #ff4444; border: none; padding: 10px 15px; border-radius: 5px; color: #fff; cursor: pointer; min-width: 80px;">RESET</button>
             </div>
 
             <!-- Мобильные элементы управления -->
@@ -723,10 +723,10 @@
                 <!-- Правая группа кнопок -->
                 <div class="control-group">
                     <div class="control-row">
-                        <div class="control-btn secondary" onclick="tetrisGame.togglePause()" title="Пауза">⏸</div>
+                        <div class="control-btn secondary" onclick="tetrisGame.toggleStartPause()" title="Старт/Пауза">⏸</div>
                     </div>
                     <div class="control-row">
-                        <div class="control-btn danger" onclick="tetrisGame.startGame()" title="Рестарт">↺</div>
+                        <div class="control-btn danger" onclick="tetrisGame.resetGame()" title="Сброс">↺</div>
                     </div>
                 </div>
             </div>
@@ -1429,27 +1429,138 @@
                 if (controlsDiv) {
                     controlsDiv.innerHTML = `
                         <div>${this.getKeyDisplayName(this.keySettings.left)}/${this.getKeyDisplayName(this.keySettings.right)} Move | ${this.getKeyDisplayName(this.keySettings.down)} Soft Drop | ${this.getKeyDisplayName(this.keySettings.drop)} Hard Drop</div>
-                        <div>${this.getKeyDisplayName(this.keySettings.rotate)}/${this.getKeyDisplayName(this.keySettings.rotate)} Rotate | ${this.getKeyDisplayName(this.keySettings.pause)} Pause | ${this.getKeyDisplayName(this.keySettings.restart)} Restart</div>
+                        <div>↑/Z Rotate | ${this.getKeyDisplayName(this.keySettings.pause)} Pause | ${this.getKeyDisplayName(this.keySettings.restart)} Restart</div>
                     `;
                 }
             }
 
             setupEventListeners() {
-                // Клавиатурное управление
-                document.addEventListener('keydown', (event) => {
-                    this.handleKeyPress(event);
+                try {
+                    this.logger.log('INFO', 'Setting up event listeners with DOM verification', 'INPUT');
+
+                    // Verify critical DOM elements exist before attaching handlers
+                    this.verifyCriticalDOMElements();
+
+                    // Клавиатурное управление
+                    document.addEventListener('keydown', (event) => {
+                        this.handleKeyPress(event);
+                    });
+
+                    // Сенсорное управление
+                    this.setupTouchControls();
+
+                    // Поддержка геймпадов
+                    this.setupGamepadSupport();
+
+                    // Обнаружение мобильных устройств
+                    this.detectMobileDevice();
+
+                    this.logger.log('INFO', 'Event listeners setup complete with DOM verification', 'INPUT');
+
+                } catch (error) {
+                    this.logger.log('ERROR', `Failed to setup event listeners: ${error.message}`, 'INPUT', {
+                        stack: error.stack
+                    });
+                }
+            }
+
+            verifyCriticalDOMElements() {
+                this.logger.log('DEBUG', 'Verifying critical DOM elements', 'DOM_VERIFICATION');
+
+                // Critical buttons that must exist for game functionality
+                const criticalElements = [
+                    { id: 'startPauseBtn', description: 'Start/Pause button' },
+                    { id: 'gameCanvas', description: 'Game canvas' },
+                    { id: 'statusDot', description: 'Status indicator' },
+                    { id: 'statusText', description: 'Status text' },
+                    { id: 'scoreDisplay', description: 'Score display' }
+                ];
+
+                const missingElements = [];
+                const foundElements = [];
+
+                criticalElements.forEach(element => {
+                    const domElement = document.getElementById(element.id);
+                    if (domElement) {
+                        foundElements.push(element);
+                        this.logger.log('DEBUG', `✓ Found ${element.description}`, 'DOM_VERIFICATION');
+                    } else {
+                        missingElements.push(element);
+                        this.logger.log('WARN', `✗ Missing ${element.description}`, 'DOM_VERIFICATION');
+                    }
                 });
 
-                // Сенсорное управление
-                this.setupTouchControls();
+                if (missingElements.length > 0) {
+                    this.logger.log('ERROR', 'Critical DOM elements missing', 'DOM_VERIFICATION', {
+                        missing: missingElements.map(el => el.description),
+                        found: foundElements.length,
+                        total: criticalElements.length
+                    });
 
-                // Поддержка геймпадов
-                this.setupGamepadSupport();
+                    // Attempt to create missing elements
+                    this.createMissingDOMElements(missingElements);
+                } else {
+                    this.logger.log('INFO', 'All critical DOM elements verified', 'DOM_VERIFICATION');
+                }
 
-                // Обнаружение мобильных устройств
-                this.detectMobileDevice();
+                return missingElements.length === 0;
+            }
 
-                this.logger.log('INFO', 'Event listeners setup complete', 'INPUT');
+            createMissingDOMElements(missingElements) {
+                this.logger.log('WARN', 'Creating missing DOM elements', 'DOM_VERIFICATION');
+
+                missingElements.forEach(element => {
+                    try {
+                        switch (element.id) {
+                            case 'startPauseBtn':
+                                this.createStartPauseButton();
+                                break;
+                            case 'statusDot':
+                            case 'statusText':
+                            case 'scoreDisplay':
+                                this.createStatusElements();
+                                break;
+                            default:
+                                this.logger.log('WARN', `Unknown missing element: ${element.id}`, 'DOM_VERIFICATION');
+                        }
+                    } catch (error) {
+                        this.logger.log('ERROR', `Failed to create element ${element.id}: ${error.message}`, 'DOM_VERIFICATION');
+                    }
+                });
+            }
+
+            createStatusElements() {
+                // Create status container if missing
+                const gamePanel = document.querySelector('.game-panel');
+                if (!gamePanel) {
+                    this.logger.log('ERROR', 'Game panel not found for status elements', 'DOM_VERIFICATION');
+                    return;
+                }
+
+                // Status section
+                const statusDiv = document.createElement('div');
+                statusDiv.style.marginBottom = '20px';
+                statusDiv.innerHTML = `
+                    <h3 style="color: var(--primary-color); margin-bottom: 10px;">Game Status</h3>
+                    <div style="display: flex; align-items: center;">
+                        <div id="statusDot" class="status-dot paused"></div>
+                        <span id="statusText">Paused</span>
+                    </div>
+                `;
+
+                // Score section
+                const scoreDiv = document.createElement('div');
+                scoreDiv.style.marginBottom = '20px';
+                scoreDiv.innerHTML = `
+                    <h3 style="color: var(--primary-color); margin-bottom: 10px;">Score</h3>
+                    <div id="scoreDisplay" style="font-size: 1.2rem; color: var(--text); font-weight: bold;">0</div>
+                `;
+
+                // Insert at the beginning of game panel
+                gamePanel.insertBefore(scoreDiv, gamePanel.firstChild);
+                gamePanel.insertBefore(statusDiv, gamePanel.firstChild);
+
+                this.logger.log('INFO', 'Status elements created successfully', 'DOM_VERIFICATION');
             }
 
             setupTouchControls() {
@@ -1853,18 +1964,21 @@
             }
 
             startGame() {
-                // Update statistics
-                if (!this.isPaused || this.isGameOver) {
+                // If game is over, reset and start new game
+                if (this.isGameOver) {
                     this.statistics.gamesPlayed++;
-                    if (this.score > 0) {
-                        this.statistics.totalScore += this.score;
-                    }
                     this.saveStatistics();
+                    this.initializeGameState();
                 }
 
-                this.initializeGameState();
+                // Always unpause the game when start is clicked
+                if (this.isPaused) {
+                    this.isPaused = false;
+                    this.lastPlayTimeUpdate = Date.now();
+                    this.logger.logGameEvent('GAME_STARTED');
+                }
+
                 this.updateUI();
-                this.logger.logGameEvent('GAME_STARTED');
             }
 
             togglePause() {
@@ -1873,12 +1987,186 @@
 
                 if (this.isPaused) {
                     this.sessionPlayTime += Date.now() - this.lastPlayTimeUpdate;
+                    this.logger.logGameEvent('GAME_PAUSED');
                 } else {
                     this.lastPlayTimeUpdate = Date.now();
+                    this.logger.logGameEvent('GAME_RESUMED');
                 }
 
-                this.logger.logGameEvent(this.isPaused ? 'GAME_PAUSED' : 'GAME_RESUMED');
                 this.updateUI();
+            }
+
+            toggleStartPause() {
+                try {
+                    // Enhanced debugging logs for troubleshooting
+                    this.logger.log('DEBUG', 'toggleStartPause() method called', 'BUTTON_CONTROL_DEBUG', {
+                        isGameOver: this.isGameOver,
+                        isPaused: this.isPaused,
+                        timestamp: Date.now(),
+                        gameState: this.isGameOver ? 'GAME_OVER' : this.isPaused ? 'PAUSED' : 'PLAYING'
+                    });
+
+                    // Validate game state consistency
+                    if (typeof this.isGameOver !== 'boolean' || typeof this.isPaused !== 'boolean') {
+                        throw new Error('Invalid game state detected in toggleStartPause');
+                    }
+
+                    if (this.isGameOver) {
+                        // If game is over, start a new game
+                        this.logger.log('INFO', 'Starting new game from game over state', 'BUTTON_CONTROL_DEBUG');
+                        this.statistics.gamesPlayed++;
+                        this.saveStatistics();
+                        this.initializeGameState();
+                        this.logger.logGameEvent('GAME_STARTED');
+                    } else if (this.isPaused) {
+                        // If paused, start/resume the game
+                        this.logger.log('INFO', 'Resuming game from paused state', 'BUTTON_CONTROL_DEBUG');
+                        this.isPaused = false;
+                        this.lastPlayTimeUpdate = Date.now();
+                        this.logger.logGameEvent('GAME_RESUMED');
+                    } else {
+                        // If playing, pause the game
+                        this.logger.log('INFO', 'Pausing game from playing state', 'BUTTON_CONTROL_DEBUG');
+                        this.isPaused = true;
+                        this.sessionPlayTime += Date.now() - this.lastPlayTimeUpdate;
+                        this.logger.logGameEvent('GAME_PAUSED');
+                    }
+
+                    // Update UI after state change
+                    this.updateUI();
+
+                    this.logger.log('DEBUG', 'toggleStartPause() completed successfully', 'BUTTON_CONTROL_DEBUG', {
+                        newState: this.isGameOver ? 'GAME_OVER' : this.isPaused ? 'PAUSED' : 'PLAYING',
+                        timestamp: Date.now()
+                    });
+
+                } catch (error) {
+                    this.logger.log('ERROR', `Error in toggleStartPause(): ${error.message}`, 'BUTTON_CONTROL_DEBUG', {
+                        stack: error.stack,
+                        gameState: { isGameOver: this.isGameOver, isPaused: this.isPaused }
+                    });
+
+                    // Attempt recovery - reset to safe state
+                    this.isPaused = true;
+                    this.logger.log('WARN', 'Recovered from toggleStartPause error - reset to paused state', 'BUTTON_CONTROL_DEBUG');
+                    this.updateUI();
+                }
+            }
+
+            updateStartPauseButton() {
+                try {
+                    // Enhanced DOM element verification
+                    const button = document.getElementById('startPauseBtn');
+
+                    if (!button) {
+                        this.logger.log('ERROR', 'Start/Pause button not found in DOM', 'BUTTON_CONTROL_DEBUG', {
+                            buttonId: 'startPauseBtn',
+                            availableButtons: Array.from(document.querySelectorAll('button')).map(btn => btn.id || 'no-id')
+                        });
+
+                        // Attempt to create button if missing (fallback)
+                        this.logger.log('WARN', 'Attempting to create missing start/pause button', 'BUTTON_CONTROL_DEBUG');
+                        this.createStartPauseButton();
+                        return;
+                    }
+
+                    // Validate button state before updating
+                    if (typeof button.textContent !== 'string') {
+                        this.logger.log('WARN', 'Button textContent is not a string, resetting', 'BUTTON_CONTROL_DEBUG');
+                        button.textContent = 'START';
+                    }
+
+                    this.logger.log('DEBUG', 'Updating start/pause button state', 'BUTTON_CONTROL_DEBUG', {
+                        currentGameState: this.isGameOver ? 'GAME_OVER' : this.isPaused ? 'PAUSED' : 'PLAYING',
+                        currentButtonText: button.textContent,
+                        currentButtonStyle: button.style.backgroundColor
+                    });
+
+                    // Enhanced state-based button updates with better visual feedback
+                    if (this.isGameOver) {
+                        button.textContent = 'START';
+                        button.style.background = '#00ff88'; // Green for start
+                        button.style.color = '#000000';
+                        button.title = 'Start a new game';
+                        this.logger.log('DEBUG', 'Button updated for GAME_OVER state', 'BUTTON_CONTROL_DEBUG');
+                    } else if (this.isPaused) {
+                        button.textContent = 'START';
+                        button.style.background = '#00ff88'; // Green for start/resume
+                        button.style.color = '#000000';
+                        button.title = 'Resume the game';
+                        this.logger.log('DEBUG', 'Button updated for PAUSED state', 'BUTTON_CONTROL_DEBUG');
+                    } else {
+                        button.textContent = 'PAUSE';
+                        button.style.background = '#ffaa00'; // Orange for pause
+                        button.style.color = '#000000';
+                        button.title = 'Pause the game';
+                        this.logger.log('DEBUG', 'Button updated for PLAYING state', 'BUTTON_CONTROL_DEBUG');
+                    }
+
+                    // Add visual feedback for state transitions
+                    button.classList.add('animate-fade-in');
+                    setTimeout(() => {
+                        button.classList.remove('animate-fade-in');
+                    }, 300);
+
+                    this.logger.log('DEBUG', 'Button update completed successfully', 'BUTTON_CONTROL_DEBUG', {
+                        finalButtonText: button.textContent,
+                        finalButtonStyle: button.style.backgroundColor,
+                        buttonTitle: button.title
+                    });
+
+                } catch (error) {
+                    this.logger.log('ERROR', `Error updating start/pause button: ${error.message}`, 'BUTTON_CONTROL_DEBUG', {
+                        stack: error.stack,
+                        gameState: { isGameOver: this.isGameOver, isPaused: this.isPaused }
+                    });
+
+                    // Fallback button creation
+                    this.createStartPauseButton();
+                }
+            }
+
+            createStartPauseButton() {
+                try {
+                    this.logger.log('INFO', 'Creating fallback start/pause button', 'BUTTON_CONTROL_DEBUG');
+
+                    // Remove existing button if it exists but is corrupted
+                    const existingButton = document.getElementById('startPauseBtn');
+                    if (existingButton) {
+                        existingButton.remove();
+                    }
+
+                    // Create new button
+                    const buttonContainer = document.querySelector('.game-panel div[style*="margin-bottom: 20px"]');
+                    if (buttonContainer) {
+                        const newButton = document.createElement('button');
+                        newButton.id = 'startPauseBtn';
+                        newButton.onclick = () => this.toggleStartPause();
+                        newButton.style.cssText = 'background: #00ff88; border: none; padding: 10px 15px; border-radius: 5px; color: #000; cursor: pointer; margin-right: 10px; min-width: 80px;';
+                        newButton.textContent = 'START';
+                        newButton.title = 'Start/Resume game';
+
+                        buttonContainer.insertBefore(newButton, buttonContainer.firstChild);
+                        this.logger.log('INFO', 'Fallback button created successfully', 'BUTTON_CONTROL_DEBUG');
+                    } else {
+                        this.logger.log('ERROR', 'Could not find button container for fallback button', 'BUTTON_CONTROL_DEBUG');
+                    }
+                } catch (error) {
+                    this.logger.log('ERROR', `Failed to create fallback button: ${error.message}`, 'BUTTON_CONTROL_DEBUG');
+                }
+            }
+
+            resetGame() {
+                // Update statistics for completed game
+                if (this.score > 0) {
+                    this.statistics.gamesPlayed++;
+                    this.statistics.totalScore += this.score;
+                    this.saveStatistics();
+                }
+
+                this.initializeGameState();
+                this.updateUI();
+                this.logger.logGameEvent('GAME_RESET');
             }
 
             saveStatistics() {
@@ -1958,10 +2246,19 @@
             }
 
             placePiece() {
-                if (!this.currentPiece) return;
+                if (!this.currentPiece || this.isGameOver) return;
+
+                this.logger.log('DEBUG', 'Placing piece on grid', 'PIECE_PLACEMENT_DEBUG', {
+                    pieceType: this.currentPiece.type,
+                    pieceRow: this.currentPiece.row,
+                    pieceCol: this.currentPiece.col,
+                    gridTopRowBefore: this.grid[0].map(cell => cell ? 'BLOCKED' : 'EMPTY')
+                });
 
                 // Place piece on grid
                 const shape = this.currentPiece.shape;
+                let placedInTopRow = false;
+
                 for (let row = 0; row < shape.length; row++) {
                     for (let col = 0; col < shape[row].length; col++) {
                         if (shape[row][col]) {
@@ -1973,6 +2270,15 @@
                                     color: this.currentPiece.color,
                                     placed: Date.now()
                                 };
+
+                                // Track if we're placing in top row
+                                if (gridRow === 0) {
+                                    placedInTopRow = true;
+                                    this.logger.log('WARN', 'Piece placed in top row - monitoring for game over', 'PIECE_PLACEMENT_DEBUG', {
+                                        gridRow: gridRow,
+                                        gridCol: gridCol
+                                    });
+                                }
                             }
                         }
                     }
@@ -1984,25 +2290,61 @@
                 // Check for line clears
                 this.checkLineClears();
 
+                this.logger.log('DEBUG', 'About to check for game over', 'PIECE_PLACEMENT_DEBUG', {
+                    hasNextPiece: !!this.nextPiece,
+                    gridTopRowAfter: this.grid[0].map(cell => cell ? 'BLOCKED' : 'EMPTY'),
+                    placedInTopRow: placedInTopRow
+                });
+
                 // Check for game over
                 if (!this.generateNextPieceFromQueue()) {
+                    this.logger.log('CRITICAL', 'Game over condition detected - no valid next piece!', 'PIECE_PLACEMENT_DEBUG');
                     this.gameOver();
+                } else {
+                    this.logger.log('DEBUG', 'Next piece successfully generated', 'PIECE_PLACEMENT_DEBUG');
                 }
 
                 this.updateUI();
             }
 
             generateNextPieceFromQueue() {
+                // Safety check: prevent generation if game is already over
+                if (this.isGameOver) {
+                    this.logger.log('WARN', 'Attempted to generate piece but game is already over', 'GAME_STATE');
+                    return false;
+                }
+
                 // Move next piece to current
                 if (this.nextPiece) {
-                    this.currentPiece = {
+                    const newPiece = {
                         ...this.nextPiece,
                         row: 0,
                         col: Math.floor(this.COLS / 2) - 1
                     };
-                    this.generateNextPiece();
-                    return true;
+
+                    this.logger.log('DEBUG', 'Checking if new piece can be placed at starting position', 'GAME_OVER_DEBUG', {
+                        pieceType: newPiece.type,
+                        startRow: newPiece.row,
+                        startCol: newPiece.col,
+                        gridTopRow: this.grid[0].map(cell => cell ? 'BLOCKED' : 'EMPTY')
+                    });
+
+                    if (this.isValidPosition(newPiece, newPiece.row, newPiece.col)) {
+                        this.currentPiece = newPiece;
+                        this.generateNextPiece();
+                        this.logger.log('DEBUG', 'New piece successfully placed at starting position', 'GAME_OVER_DEBUG');
+                        return true;
+                    } else {
+                        this.logger.log('CRITICAL', 'New piece cannot be placed at starting position - triggering game over!', 'GAME_OVER_DEBUG', {
+                            pieceType: newPiece.type,
+                            startRow: newPiece.row,
+                            startCol: newPiece.col,
+                            gridTopRow: this.grid[0].map(cell => cell ? 'BLOCKED' : 'EMPTY')
+                        });
+                        return false;
+                    }
                 }
+                this.logger.log('DEBUG', 'No next piece available - triggering game over!', 'GAME_OVER_DEBUG');
                 return false;
             }
 
@@ -2056,6 +2398,19 @@
             }
 
             gameOver() {
+                this.logger.log('CRITICAL', 'GAME OVER TRIGGERED!', 'GAME_OVER_DEBUG', {
+                    score: this.score,
+                    level: this.level,
+                    lines: this.linesClearedThisGame,
+                    pieces: this.piecesPlaced,
+                    gridTopRow: this.grid[0].map(cell => cell ? 'BLOCKED' : 'EMPTY'),
+                    currentPiece: this.currentPiece ? {
+                        type: this.currentPiece.type,
+                        row: this.currentPiece.row,
+                        col: this.currentPiece.col
+                    } : null
+                });
+
                 this.isGameOver = true;
                 this.isPaused = true;
                 this.saveStatistics();
@@ -2072,17 +2427,56 @@
 
             isValidPosition(piece, row, col) {
                 const shape = piece.shape;
+
+                // DEBUG: Log position checks, especially for top rows
+                if (row === 0) {
+                    this.logger.log('DEBUG', 'Checking position at top row (row 0)', 'COLLISION_DEBUG', {
+                        pieceType: piece.type,
+                        row: row,
+                        col: col,
+                        gridTopRow: this.grid[0].map(cell => cell ? 'BLOCKED' : 'EMPTY')
+                    });
+                }
+
                 for (let r = 0; r < shape.length; r++) {
                     for (let c = 0; c < shape[r].length; c++) {
                         if (shape[r][c]) {
                             const newRow = row + r;
                             const newCol = col + c;
-                            if (newRow < 0 || newRow >= this.ROWS || newCol < 0 || newCol >= this.COLS || this.grid[newRow][newCol]) {
+
+                            // DEBUG: Log specific collision checks
+                            if (newRow < 0 || newRow >= this.ROWS || newCol < 0 || newCol >= this.COLS) {
+                                this.logger.log('DEBUG', 'Collision detected: out of bounds', 'COLLISION_DEBUG', {
+                                    pieceType: piece.type,
+                                    checkRow: newRow,
+                                    checkCol: newCol,
+                                    reason: newRow < 0 ? 'above grid' : newRow >= this.ROWS ? 'below grid' : 'out of horizontal bounds'
+                                });
+                                return false;
+                            }
+
+                            if (this.grid[newRow][newCol]) {
+                                this.logger.log('DEBUG', 'Collision detected: grid position occupied', 'COLLISION_DEBUG', {
+                                    pieceType: piece.type,
+                                    checkRow: newRow,
+                                    checkCol: newCol,
+                                    occupiedBy: this.grid[newRow][newCol]
+                                });
                                 return false;
                             }
                         }
                     }
                 }
+
+                // DEBUG: Log successful position validation
+                if (row === 0) {
+                    this.logger.log('DEBUG', 'Position at top row is valid', 'COLLISION_DEBUG', {
+                        pieceType: piece.type,
+                        row: row,
+                        col: col
+                    });
+                }
+
                 return true;
             }
 
@@ -2116,57 +2510,193 @@
             }
 
             updateUI() {
-                // Update game status
-                const statusDot = document.getElementById('statusDot');
-                const statusText = document.getElementById('statusText');
+                try {
+                    // Prevent race conditions by checking if UI update is already in progress
+                    if (this.isUpdatingUI) {
+                        this.logger.log('DEBUG', 'UI update already in progress, skipping', 'STATE_SYNC');
+                        return;
+                    }
 
-                if (this.isGameOver) {
-                    statusDot.className = 'status-dot game-over animate-game-over';
-                    statusText.textContent = 'Game Over';
-                } else if (this.isPaused) {
-                    statusDot.className = 'status-dot paused';
-                    statusText.textContent = 'Paused';
-                } else {
-                    statusDot.className = 'status-dot playing';
-                    statusText.textContent = 'Playing';
+                    this.isUpdatingUI = true;
+                    this.logger.log('DEBUG', 'Starting UI update', 'STATE_SYNC', {
+                        gameState: this.isGameOver ? 'GAME_OVER' : this.isPaused ? 'PAUSED' : 'PLAYING',
+                        timestamp: Date.now()
+                    });
+
+                    // Use requestAnimationFrame for smooth updates
+                    requestAnimationFrame(() => {
+                        try {
+                            this.performUIUpdate();
+                        } finally {
+                            this.isUpdatingUI = false;
+                            this.logger.log('DEBUG', 'UI update completed', 'STATE_SYNC');
+                        }
+                    });
+
+                } catch (error) {
+                    this.isUpdatingUI = false;
+                    this.logger.log('ERROR', `Error in updateUI: ${error.message}`, 'STATE_SYNC', {
+                        stack: error.stack,
+                        gameState: { isGameOver: this.isGameOver, isPaused: this.isPaused }
+                    });
                 }
+            }
+
+            performUIUpdate() {
+                // Validate state consistency before updating UI
+                if (!this.validateGameState()) {
+                    this.logger.log('ERROR', 'Invalid game state detected during UI update', 'STATE_SYNC');
+                    return;
+                }
+
+                // Batch DOM queries to improve performance
+                const elements = {
+                    statusDot: document.getElementById('statusDot'),
+                    statusText: document.getElementById('statusText'),
+                    scoreDisplay: document.getElementById('scoreDisplay'),
+                    linesCleared: document.getElementById('linesCleared'),
+                    currentLevel: document.getElementById('currentLevel'),
+                    piecesPlaced: document.getElementById('piecesPlaced'),
+                    sessionTime: document.getElementById('sessionTime'),
+                    bestScore: document.getElementById('bestScore'),
+                    gamesPlayed: document.getElementById('gamesPlayed'),
+                    avgScore: document.getElementById('avgScore')
+                };
+
+                // Update game status with enhanced error handling
+                this.updateGameStatusElements(elements);
 
                 // Update score and statistics
-                document.getElementById('scoreDisplay').textContent = this.score;
-
-                // Update desktop-only statistics
-                const linesClearedEl = document.getElementById('linesCleared');
-                const currentLevelEl = document.getElementById('currentLevel');
-                const piecesPlacedEl = document.getElementById('piecesPlaced');
-                const sessionTimeEl = document.getElementById('sessionTime');
-                const bestScoreEl = document.getElementById('bestScore');
-                const gamesPlayedEl = document.getElementById('gamesPlayed');
-                const avgScoreEl = document.getElementById('avgScore');
-
-                if (linesClearedEl) linesClearedEl.textContent = this.linesClearedThisGame;
-                if (currentLevelEl) currentLevelEl.textContent = this.level;
-                if (piecesPlacedEl) piecesPlacedEl.textContent = this.piecesPlaced;
-
-                if (sessionTimeEl) {
-                    const totalPlayTime = this.sessionPlayTime + (this.isPaused ? 0 : Date.now() - this.lastPlayTimeUpdate);
-                    sessionTimeEl.textContent = this.formatTime(totalPlayTime);
-                }
-
-                if (bestScoreEl) bestScoreEl.textContent = this.statistics.bestScore;
-                if (gamesPlayedEl) gamesPlayedEl.textContent = this.statistics.gamesPlayed;
-                if (avgScoreEl) {
-                    const avg = this.statistics.gamesPlayed > 0 ?
-                        Math.round(this.statistics.totalScore / this.statistics.gamesPlayed) : 0;
-                    avgScoreEl.textContent = avg;
-                }
+                this.updateScoreElements(elements);
 
                 // Update next piece preview
                 this.updateNextPiecePreview();
+
+                // Update start/pause button
+                this.updateStartPauseButton();
 
                 // Update keyboard controls display if not already done
                 if (!this.controlsDisplayUpdated) {
                     this.updateKeyboardControlsDisplay();
                     this.controlsDisplayUpdated = true;
+                }
+
+                this.logger.log('DEBUG', 'UI elements updated successfully', 'STATE_SYNC');
+            }
+
+            validateGameState() {
+                // Validate that game state is consistent
+                if (typeof this.isGameOver !== 'boolean' || typeof this.isPaused !== 'boolean') {
+                    this.logger.log('ERROR', 'Game state validation failed', 'STATE_SYNC', {
+                        isGameOver: this.isGameOver,
+                        isPaused: this.isPaused,
+                        score: this.score,
+                        level: this.level
+                    });
+                    return false;
+                }
+
+                // Check for impossible states
+                if (this.isGameOver && !this.isPaused) {
+                    this.logger.log('WARN', 'Correcting inconsistent state: game over should be paused', 'STATE_SYNC');
+                    this.isPaused = true;
+                }
+
+                return true;
+            }
+
+            updateGameStatusElements(elements) {
+                if (!elements.statusDot || !elements.statusText) {
+                    this.logger.log('ERROR', 'Status elements not found during UI update', 'STATE_SYNC');
+                    return;
+                }
+
+                const newStatusClass = this.isGameOver ? 'status-dot game-over animate-game-over' :
+                                     this.isPaused ? 'status-dot paused' : 'status-dot playing';
+
+                const newStatusText = this.isGameOver ? 'Game Over' :
+                                     this.isPaused ? 'Paused' : 'Playing';
+
+                // Only update if state has changed to prevent unnecessary DOM operations
+                if (elements.statusDot.className !== newStatusClass) {
+                    elements.statusDot.className = newStatusClass;
+                }
+
+                if (elements.statusText.textContent !== newStatusText) {
+                    elements.statusText.textContent = newStatusText;
+                }
+
+                this.logger.log('DEBUG', 'Game status elements updated', 'STATE_SYNC', {
+                    statusClass: newStatusClass,
+                    statusText: newStatusText
+                });
+            }
+
+            updateScoreElements(elements) {
+                if (!elements.scoreDisplay) {
+                    this.logger.log('ERROR', 'Score display element not found', 'STATE_SYNC');
+                    return;
+                }
+
+                // Update score with validation
+                const newScore = this.score.toString();
+                if (elements.scoreDisplay.textContent !== newScore) {
+                    elements.scoreDisplay.textContent = newScore;
+                }
+
+                // Update other statistics with null checks
+                if (elements.linesCleared) {
+                    const linesText = this.linesClearedThisGame.toString();
+                    if (elements.linesCleared.textContent !== linesText) {
+                        elements.linesCleared.textContent = linesText;
+                    }
+                }
+
+                if (elements.currentLevel) {
+                    const levelText = this.level.toString();
+                    if (elements.currentLevel.textContent !== levelText) {
+                        elements.currentLevel.textContent = levelText;
+                    }
+                }
+
+                if (elements.piecesPlaced) {
+                    const piecesText = this.piecesPlaced.toString();
+                    if (elements.piecesPlaced.textContent !== piecesText) {
+                        elements.piecesPlaced.textContent = piecesText;
+                    }
+                }
+
+                // Update session time with proper calculation
+                if (elements.sessionTime) {
+                    const totalPlayTime = this.sessionPlayTime + (this.isPaused ? 0 : Date.now() - this.lastPlayTimeUpdate);
+                    const timeText = this.formatTime(totalPlayTime);
+                    if (elements.sessionTime.textContent !== timeText) {
+                        elements.sessionTime.textContent = timeText;
+                    }
+                }
+
+                // Update statistics with validation
+                if (elements.bestScore) {
+                    const bestScoreText = this.statistics.bestScore.toString();
+                    if (elements.bestScore.textContent !== bestScoreText) {
+                        elements.bestScore.textContent = bestScoreText;
+                    }
+                }
+
+                if (elements.gamesPlayed) {
+                    const gamesText = this.statistics.gamesPlayed.toString();
+                    if (elements.gamesPlayed.textContent !== gamesText) {
+                        elements.gamesPlayed.textContent = gamesText;
+                    }
+                }
+
+                if (elements.avgScore) {
+                    const avg = this.statistics.gamesPlayed > 0 ?
+                        Math.round(this.statistics.totalScore / this.statistics.gamesPlayed) : 0;
+                    const avgText = avg.toString();
+                    if (elements.avgScore.textContent !== avgText) {
+                        elements.avgScore.textContent = avgText;
+                    }
                 }
             }
 
@@ -2432,6 +2962,75 @@
             console.log('🎯 Performance: Optimized for mobile, tablet, and desktop');
             console.log('📱 Controls: Touch controls on mobile, keyboard on desktop');
         });
+
+        // Debug function to simulate realistic game over scenario
+        window.debugFillGrid = function() {
+            console.log('🎯 Starting debug grid fill simulation...');
+
+            // Fill only the top few rows to simulate realistic stacking
+            // This creates a scenario where new pieces cannot be placed at row 0
+            const rowsToFill = 4; // Fill top 4 rows
+            for (let row = 0; row < rowsToFill; row++) {
+                for (let col = 0; col < tetrisGame.COLS; col++) {
+                    tetrisGame.grid[row][col] = {
+                        color: '#ff0000',
+                        placed: Date.now()
+                    };
+                }
+                console.log(`Filled row ${row}:`, tetrisGame.grid[row].map(cell => cell ? 'BLOCKED' : 'EMPTY'));
+            }
+
+            console.log('🎯 Top rows filled - next piece should trigger game over');
+            tetrisGame.updateUI();
+
+            // Try to place a new piece - this should fail and trigger game over
+            setTimeout(() => {
+                console.log('🎯 Attempting to generate next piece...');
+                tetrisGame.generateNextPieceFromQueue();
+            }, 1000);
+        };
+
+        // Debug function to create partial blockage in top row
+        window.debugCreateTopBlockage = function() {
+            console.log('🎯 Creating realistic top row blockage...');
+
+            // Fill top row partially (not completely) and some of row 1
+            // This simulates a more realistic scenario
+            for (let col = 2; col < 8; col++) {
+                tetrisGame.grid[0][col] = {
+                    color: '#ff0000',
+                    placed: Date.now()
+                };
+            }
+
+            // Fill some of row 1
+            for (let col = 1; col < 9; col++) {
+                tetrisGame.grid[1][col] = {
+                    color: '#ff0000',
+                    placed: Date.now()
+                };
+            }
+
+            console.log('Top row (0):', tetrisGame.grid[0].map(cell => cell ? 'BLOCKED' : 'EMPTY'));
+            console.log('Top row (1):', tetrisGame.grid[1].map(cell => cell ? 'BLOCKED' : 'EMPTY'));
+
+            console.log('🎯 Realistic blockage created - next piece should trigger game over');
+            tetrisGame.updateUI();
+
+            // Try to place a new piece - this should fail and trigger game over
+            setTimeout(() => {
+                console.log('🎯 Attempting to generate next piece...');
+                tetrisGame.generateNextPieceFromQueue();
+            }, 1000);
+        };
+
+        // Debug function to check current grid state
+        window.debugCheckGrid = function() {
+            console.log('🔍 Current grid state:');
+            tetrisGame.grid.forEach((row, index) => {
+                console.log(`Row ${index}:`, row.map(cell => cell ? 'BLOCKED' : 'EMPTY'));
+            });
+        };
 
         // Make functions globally accessible
         window.tetrisGame = tetrisGame;

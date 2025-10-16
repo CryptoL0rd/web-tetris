@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Button Control Tests</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0f0f23;
+            color: #00ff88;
+            margin: 0;
+            padding: 20px;
+        }
+        .test-output {
+            background: rgba(0, 255, 136, 0.1);
+            border: 2px solid #00ff88;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            white-space: pre-wrap;
+            font-size: 14px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status.running {
+            background: rgba(255, 170, 0, 0.2);
+            border: 1px solid #ffaa00;
+        }
+        .status.success {
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid #00ff88;
+        }
+        .status.error {
+            background: rgba(255, 68, 68, 0.2);
+            border: 1px solid #ff4444;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Tetris Button Control Test Suite</h1>
+    <div class="status running" id="status">Initializing tests...</div>
+    <div class="test-output" id="output"></div>
+
+    <script type="module">
+        // Override console methods to capture output
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        const outputElement = document.getElementById('output');
+
+        function addOutput(text, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.innerHTML = `[${timestamp}] ${text}`;
+            line.style.color = type === 'error' ? '#ff4444' : type === 'warn' ? '#ffaa00' : '#00ff88';
+            outputElement.appendChild(line);
+            outputElement.scrollTop = outputElement.scrollHeight;
+        }
+
+        console.log = (...args) => {
+            originalLog(...args);
+            addOutput(args.join(' '));
+        };
+
+        console.error = (...args) => {
+            originalError(...args);
+            addOutput(args.join(' '), 'error');
+        };
+
+        console.warn = (...args) => {
+            originalWarn(...args);
+            addOutput(args.join(' '), 'warn');
+        };
+
+        // Load the test script
+        fetch('/test-button-controls.js')
+            .then(response => response.text())
+            .then(scriptText => {
+                // Execute the test script in global context
+                eval(scriptText);
+            })
+            .catch(error => {
+                console.error('Failed to load test script:', error);
+                document.getElementById('status').textContent = 'Failed to load test script';
+                document.getElementById('status').className = 'status error';
+            });
+    </script>
+</body>
+</html>
